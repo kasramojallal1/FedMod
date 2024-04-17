@@ -68,8 +68,6 @@ def setup_dataframe_3():
     X_scaled = min_max_scaler.fit_transform(X_values)
     X = pd.DataFrame(X_scaled)
 
-    print(X.shape)
-
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     X_train = X_train.reset_index(drop=True)

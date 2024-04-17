@@ -24,7 +24,9 @@ dataset_address_4 = './datasets/phishing.arff'
 
 run_dataset_1 = False
 run_dataset_2 = False
+run_dataset_2_new = False
 run_dataset_3 = True
+run_dataset_3_new = False
 run_dataset_4 = False
 
 if __name__ == "__main__":
@@ -47,6 +49,20 @@ if __name__ == "__main__":
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_4(dataset_address_4)
         party1, party2, server1, server2, main_server1 = nodes.create_nodes_4(X_train, y_train, 2, 'multi-classification', number_of_classes=3)
         run_time, cpu_usage, memory_usage = train_test.train_parties_4(30, [party1, party2], [server1, server2], main_server1, X_train, y_train, X_test, y_test, n_classes=3)
+
+    elif run_dataset_2_new:
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
+        party_list, server_list, main_server = nodes.create_nodes(2, 2, 'binary-classification', 2, X_train, y_train)
+        train_test.train_model_binary_classification(dataset_name='heart', n_epochs=30, party_list=party_list,
+                                                     server_list=server_list, main_server=main_server, X_train=X_train,
+                                                     y_train=y_train, X_test=X_test, y_test=y_test)
+
+    elif run_dataset_3_new:
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
+        party_list, server_list, main_server = nodes.create_nodes(2, 2, 'binary-classification', 2, X_train, y_train)
+        train_test.train_model_binary_classification(dataset_name='ionosphere', n_epochs=30, party_list=party_list,
+                                                     server_list=server_list, main_server=main_server, X_train=X_train,
+                                                     y_train=y_train, X_test=X_test, y_test=y_test)
 
     if run_dataset_1 or run_dataset_2 or run_dataset_3 or run_dataset_4:
         print("------ FedMod ------")
