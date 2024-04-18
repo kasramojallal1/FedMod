@@ -78,16 +78,46 @@ def parties_reset(party_list):
         party.reset()
 
 
+def add_markers_at_intervals(y_data, marker_symbol, marker_color, interval=50):
+    markers_x = list(range(0, len(y_data), interval))
+    markers_y = [y_data[x] for x in markers_x]
+    return go.Scatter(
+        x=markers_x,
+        y=markers_y,
+        mode='markers',
+        marker=dict(symbol=marker_symbol, size=8, color=marker_color),
+        showlegend=False
+    )
+
+
 def figure_for_classification(type_name, train_history, test_history, baseline_train_history, baseline_test_history):
-    trace1 = go.Scatter(y=train_history, mode='lines', name='FedMod Train', line=dict(color='blue'))
-    trace2 = go.Scatter(y=test_history, mode='lines', name='FedMod Test', line=dict(color='red'))
-    trace3 = go.Scatter(y=baseline_train_history, mode='lines', name='Baseline Train', line=dict(color='green'))
-    trace4 = go.Scatter(y=baseline_test_history, mode='lines', name='Baseline Test', line=dict(color='orange'))
+    trace1 = go.Scatter(y=train_history, mode='lines', name='FedMod Train',
+                        line=dict(color='rgba(100, 149, 237, 1)', width=2, dash='solid'))
+    trace2 = go.Scatter(y=test_history, mode='lines', name='FedMod Test',
+                        line=dict(color='rgba(65, 105, 225, 1)', width=2, dash='dash'))
+    trace3 = go.Scatter(y=baseline_train_history, mode='lines', name='Baseline Train',
+                        line=dict(color='rgba(255, 160, 122, 1)', width=2, dash='solid'))
+    trace4 = go.Scatter(y=baseline_test_history, mode='lines', name='Baseline Test',
+                        line=dict(color='rgba(205, 92, 92, 1)', width=2, dash='dash'))
 
-    layout = go.Layout(title=type_name, xaxis=dict(title='Epochs'), yaxis=dict(title=type_name),
-                       legend=dict(x=0, y=1, traceorder='normal', orientation='h'))
+    markers_interval = config.plot_intervals
+    trace1_markers = add_markers_at_intervals(train_history, 'circle', 'rgba(100, 149, 237, 1)', markers_interval)
+    trace2_markers = add_markers_at_intervals(test_history, 'diamond', 'rgba(65, 105, 225, 1)', markers_interval)
+    trace3_markers = add_markers_at_intervals(baseline_train_history, 'circle', 'rgba(255, 160, 122, 1)',
+                                              markers_interval)
+    trace4_markers = add_markers_at_intervals(baseline_test_history, 'diamond', 'rgba(205, 92, 92, 1)',
+                                              markers_interval)
 
-    fig1 = go.Figure(data=[trace1, trace2, trace3, trace4], layout=layout)
+    layout = go.Layout(title=type_name,
+                       xaxis=dict(title='Epochs',
+                                  tickvals=list(range(0, len(train_history) + 1, markers_interval)),
+                                  showgrid=True,
+                                  zeroline=False),
+                       yaxis=dict(title=type_name),
+                       legend=dict(x=0, y=1, traceorder='normal', orientation='h'),
+                       plot_bgcolor='rgba(242, 242, 242, 1)')
+
+    fig1 = go.Figure(data=[trace1, trace2, trace3, trace4, trace1_markers, trace2_markers, trace3_markers, trace4_markers], layout=layout)
     fig1.show()
 
     print('------' + type_name + '------')
@@ -114,9 +144,14 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
                               kernel_regularizer=tf.keras.regularizers.l2(config.regularization_rate))
     ])
     optimizer = tf.keras.optimizers.SGD(learning_rate=config.learning_rate)
-    model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
+
+    if dataset_name == 'ionosphere':
+        model_tf.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+    else:
+        model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
 
     for epoch in range(n_epochs):
+        print('Epoch:', epoch + 1)
         history = model_tf.fit(X_train, y_train, epochs=1, batch_size=1, verbose=0)
 
         train_loss = history.history['loss'][0]
@@ -149,9 +184,12 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
                               kernel_regularizer=tf.keras.regularizers.l2(config.regularization_rate))
     ])
     optimizer = tf.keras.optimizers.SGD(learning_rate=config.learning_rate)
-    model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
+    loss = tf.keras.losses.CategoricalCrossentropy()
+    model_tf.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
+    # model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
 
     for epoch in range(n_epochs):
+        print('Epoch:', epoch + 1)
         history = model_tf.fit(X_train, y_train_encoded, epochs=1, batch_size=2, verbose=0)
 
         train_loss = history.history['loss'][0]
@@ -532,6 +570,7 @@ def train_parties_4(n_epochs, party_list, server_list, main_server, X_train, y_t
     test_accuracy_history = []
 
     for epoch in range(n_epochs):
+        print('Epoch:', epoch + 1)
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -589,13 +628,16 @@ def train_parties_4(n_epochs, party_list, server_list, main_server, X_train, y_t
     end_time_fedmod = time.time()
     end_resources = resource.getrusage(resource.RUSAGE_SELF)
 
+    input_shape = 0
+    for i in range(len(party_list)):
+        input_shape += len(party_list[i].weights[0])
     baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_mlp_multi_baseline(
         n_epochs,
         X_train,
         y_train,
         X_test,
         y_test,
-        input_shape=9,
+        input_shape=input_shape,
         output_shape=3)
 
     figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss)
@@ -666,21 +708,23 @@ def test_parties_4(X_test, y_test, party_coefs, party_biases, n_parties, n_class
     return accuracy, loss
 
 
-def train_model_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train, X_test, y_test):
-
+def train_model_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
+                                      X_test, y_test):
     train_accuracy_history = []
     train_loss_history = []
     test_accuracy_history = []
     test_loss_history = []
 
     for epoch in range(n_epochs):
+        print('Epoch:', epoch + 1)
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
 
             party_shares = []
             for party in party_list:
-                party_shares.append(party.create_shares(party.forward_pass(problem='classification'), config.k_value, config.random_coef))
+                party_shares.append(party.create_shares(party.forward_pass(problem='classification'), config.k_value,
+                                                        config.random_coef))
 
             reset_servers(server_list)
 
@@ -714,7 +758,8 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
             parties_coefs.append(party.weights)
             parties_biases.append(party.bias)
 
-        test_accuracy, test_loss = test_model_binary_classification(len(party_list), X_test, y_test, parties_coefs, parties_biases,)
+        test_accuracy, test_loss = test_model_binary_classification(len(party_list), X_test, y_test, parties_coefs,
+                                                                    parties_biases, )
 
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
@@ -729,7 +774,9 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
             new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
             new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
 
-    input_shape = len(party_list[0].weights) + len(party_list[1].weights)
+    input_shape = 0
+    for i in range(len(party_list)):
+        input_shape += len(party_list[i].weights)
     baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_mlp_binary_baseline(
         n_epochs,
         X_train,
@@ -786,11 +833,11 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
 
         if a > 0.5:
             a = 1
-            if (label_for_test == a):
+            if label_for_test == a:
                 count_correct += 1
         else:
             a = 0
-            if (label_for_test == a):
+            if label_for_test == a:
                 count_correct += 1
 
         count_test_data += 1
