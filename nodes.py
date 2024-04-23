@@ -112,7 +112,7 @@ def create_nodes_4(X_train, y_train, number_of_clients, problem_type, number_of_
                 weights_party1 = []
                 bias_party1 = []
                 for j in range(number_of_classes):
-                    weights_party1.append(np.random.uniform(-1, 1, column_share + extra_columns))
+                    weights_party1.append(np.random.uniform(-2, 2, column_share + extra_columns))
                     bias_party1.append(np.random.uniform(-1, 1, 1))
 
             else:
@@ -120,7 +120,7 @@ def create_nodes_4(X_train, y_train, number_of_clients, problem_type, number_of_
                 weights_party2 = []
                 bias_party2 = []
                 for j in range(number_of_classes):
-                    weights_party2.append(np.random.uniform(-1, 1, column_share))
+                    weights_party2.append(np.random.uniform(-2, 2, column_share))
                     bias_party2.append(np.random.uniform(-1, 1, 1))
 
     for i in range(number_of_clients):

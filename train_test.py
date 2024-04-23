@@ -90,7 +90,7 @@ def add_markers_at_intervals(y_data, marker_symbol, marker_color, interval=50):
     )
 
 
-def figure_for_classification(type_name, train_history, test_history, baseline_train_history, baseline_test_history):
+def figure_for_classification(type_name, train_history, test_history, baseline_train_history, baseline_test_history, dataset_name=None):
     trace1 = go.Scatter(y=train_history, mode='lines', name='FedMod Train',
                         line=dict(color='rgba(100, 149, 237, 1)', width=2, dash='solid'))
     trace2 = go.Scatter(y=test_history, mode='lines', name='FedMod Test',
@@ -108,7 +108,7 @@ def figure_for_classification(type_name, train_history, test_history, baseline_t
     trace4_markers = add_markers_at_intervals(baseline_test_history, 'diamond', 'rgba(205, 92, 92, 1)',
                                               markers_interval)
 
-    layout = go.Layout(title=type_name,
+    layout = go.Layout(title=f'Dataset: {dataset_name}',
                        xaxis=dict(title='Epochs',
                                   tickvals=list(range(0, len(train_history) + 1, markers_interval)),
                                   showgrid=True,
@@ -190,7 +190,7 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
 
     for epoch in range(n_epochs):
         print('Epoch:', epoch + 1)
-        history = model_tf.fit(X_train, y_train_encoded, epochs=1, batch_size=2, verbose=0)
+        history = model_tf.fit(X_train, y_train_encoded, epochs=1, batch_size=3, verbose=0)
 
         train_loss = history.history['loss'][0]
         train_accuracy = history.history['accuracy'][0]
@@ -345,9 +345,9 @@ def train_parties_2(n_epochs, party_list, server_list, main_server, X_train, y_t
         output_shape=1,
         dataset_name='heart')
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss)
+    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss, dataset_name='heart')
     figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history, baseline_train_accuracy,
-                              baseline_test_accuracy)
+                              baseline_test_accuracy, dataset_name='heart')
 
     runtime_fedmod = end_time_fedmod - start_time_fedmod
     cpu_time_used = end_resources.ru_utime - start_resources.ru_utime
@@ -500,9 +500,9 @@ def train_parties_3(n_epochs, party1, party2, server1, server2, main_server, X_t
         output_shape=1,
         dataset_name='ionosphere')
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss)
+    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss, dataset_name='ionosphere')
     figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history, baseline_train_accuracy,
-                              baseline_test_accuracy)
+                              baseline_test_accuracy, dataset_name='ionosphere')
 
     runtime_fedmod = end_time_fedmod - start_time_fedmod
     cpu_time_used = end_resources.ru_utime - start_resources.ru_utime
@@ -600,7 +600,7 @@ def train_parties_4(n_epochs, party_list, server_list, main_server, X_train, y_t
 
             temp_error = 0
             for i in range(n_classes):
-                temp_error += abs(main_server.error_multi[i])
+                temp_error += abs(main_server.error_multi[i])/3
             error_history.append(temp_error)
 
             if main_server.correct == 1:
@@ -640,9 +640,10 @@ def train_parties_4(n_epochs, party_list, server_list, main_server, X_train, y_t
         input_shape=input_shape,
         output_shape=3)
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss)
-    figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history, baseline_train_accuracy,
-                              baseline_test_accuracy)
+    figure_for_classification('Loss', train_loss_history, test_loss_history,
+                              baseline_train_loss, baseline_test_loss, dataset_name='phishing')
+    figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history,
+                              baseline_train_accuracy, baseline_test_accuracy, dataset_name='phishing')
 
     runtime_fedmod = end_time_fedmod - start_time_fedmod
     cpu_time_used = end_resources.ru_utime - start_resources.ru_utime
@@ -695,7 +696,7 @@ def test_parties_4(X_test, y_test, party_coefs, party_biases, n_parties, n_class
                 loss_multi.append(abs(sigmoid_results[i - 1] - 1))
             else:
                 loss_multi.append(abs(sigmoid_results[i - 1] - 0))
-        test_loss_list.append(sum(loss_multi))
+        test_loss_list.append(sum(loss_multi)/3)
 
         if predict == label_for_test:
             count_correct += 1
@@ -787,9 +788,10 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
         output_shape=1,
         dataset_name=dataset_name)
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss)
-    figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history, baseline_train_accuracy,
-                              baseline_test_accuracy)
+    figure_for_classification('Loss', train_loss_history, test_loss_history,
+                              baseline_train_loss, baseline_test_loss, dataset_name=dataset_name)
+    figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history,
+                              baseline_train_accuracy, baseline_test_accuracy, dataset_name=dataset_name)
 
 
 def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):
