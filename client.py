@@ -117,6 +117,8 @@ class Client:
         self.round = 0
 
     def create_shares(self, y_value, k_value, random_coef):
+        # print(f'Client {self.name}')
+        # print(f'y_value: {y_value}')
         if y_value >= 0:
             sum_values = random_coef * k_value + y_value
 
@@ -125,7 +127,7 @@ class Client:
             sum_values = random_coef * k_value + y_value
             sum_values *= -1
 
-        share1 = secrets.randbelow(k_value - (k_value - 1000) + 1) + (k_value - 1000)
+        share1 = secrets.randbelow(k_value - (k_value - 10) + 1) + (k_value - 10)
         share2 = sum_values - share1
 
         return share1, share2

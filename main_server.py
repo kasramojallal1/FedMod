@@ -38,6 +38,8 @@ class MainServer:
             sum_data = math.fmod(sum_data, k_value)
             sum_data = np.float64(sum_data)
 
+            # print(sum_data)
+
             a = sigmoid(sum_data)
             self.error = a - label_for_round
 
@@ -55,6 +57,104 @@ class MainServer:
                     self.correct = 0
 
             self.round += 1
+
+    def calculate_HE_loss(self, encrypted_numbers):
+
+        self.correct = None
+        label_for_round = self.labels.loc[self.round]
+        label_for_round = label_for_round.to_numpy()
+        label_for_round = label_for_round[0]
+
+        encrypted_sum = encrypted_numbers[0]
+        for enc_num in encrypted_numbers[1:]:
+            encrypted_sum += enc_num
+
+        decrypted_sum = encrypted_sum.decrypt()[0]
+        decrypted_sum = np.float64(decrypted_sum)
+        # print(f"Decrypted sum: {decrypted_sum}")
+
+        a = sigmoid(decrypted_sum)
+        self.error = a - label_for_round
+
+        if a > 0.5:
+            a = 1
+            if label_for_round == a:
+                self.correct = 1
+            else:
+                self.correct = 0
+        else:
+            a = 0
+            if label_for_round == a:
+                self.correct = 1
+            else:
+                self.correct = 0
+
+        self.round += 1
+
+        return self.error
+
+
+    def calculate_paillier_loss(self, encrypted_numbers):
+        self.correct = None
+        label_for_round = self.labels.loc[self.round]
+        label_for_round = label_for_round.to_numpy()
+        label_for_round = label_for_round[0]
+
+        encrypted_sum = encrypted_numbers[0] + encrypted_numbers[1]
+        decrypted_sum = config.private_key.decrypt(encrypted_sum)
+
+        a = sigmoid(decrypted_sum)
+        self.error = a - label_for_round
+
+        if a > 0.5:
+            a = 1
+            if label_for_round == a:
+                self.correct = 1
+            else:
+                self.correct = 0
+        else:
+            a = 0
+            if label_for_round == a:
+                self.correct = 1
+            else:
+                self.correct = 0
+
+        self.round += 1
+
+        return self.error
+
+
+    def calculate_DP_loss(self, smashed_numbers, laplace_mech):
+
+        self.correct = None
+        label_for_round = self.labels.loc[self.round]
+        label_for_round = label_for_round.to_numpy()
+        label_for_round = label_for_round[0]
+
+        noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
+
+        a = sigmoid(noisy_sum)
+        self.error = a - label_for_round
+
+        if a > 0.5:
+            a = 1
+            if label_for_round == a:
+                self.correct = 1
+            else:
+                self.correct = 0
+        else:
+            a = 0
+            if label_for_round == a:
+                self.correct = 1
+            else:
+                self.correct = 0
+
+        self.round += 1
+
+        return self.error
+
+
+
 
     def calculate_multi_loss(self, number_of_classes):
         self.correct = None

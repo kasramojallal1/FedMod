@@ -8,6 +8,9 @@ import pandas as pd
 import sympy
 import secrets
 import resource
+import tenseal as ts
+from phe import paillier
+from diffprivlib.mechanisms import Laplace
 
 import plotly.io as pio
 import plotly.express as px
@@ -768,12 +771,12 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
         parties_reset(party_list)
         main_server.reset_round()
 
-        if dataset_name == 'ionosphere':
-            new_df_y_train = pd.DataFrame()
-            new_df_y_test = pd.DataFrame()
-            class_mapping = {0: 'b', 1: 'g'}
-            new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
-            new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
+    if dataset_name == 'ionosphere':
+        new_df_y_train = pd.DataFrame()
+        new_df_y_test = pd.DataFrame()
+        class_mapping = {0: 'b', 1: 'g'}
+        new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
+        new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
 
     input_shape = 0
     for i in range(len(party_list)):
@@ -830,8 +833,192 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
         label_for_test = label_for_test[0]
 
         a = sigmoid(sum(smashed_list))
-
         test_loss_list.append(abs(a - label_for_test))
+
+        if a > 0.5:
+            a = 1
+            if label_for_test == a:
+                count_correct += 1
+        else:
+            a = 0
+            if label_for_test == a:
+                count_correct += 1
+
+        count_test_data += 1
+
+    accuracy = count_correct / count_test_data
+    loss = np.average(test_loss_list)
+
+    return accuracy, loss
+
+
+def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train, X_test, y_test):
+    train_accuracy_history = []
+    train_loss_history = []
+    test_accuracy_history = []
+    test_loss_history = []
+
+    type_HE = config.type_HE
+    type_paillier = config.type_paillier
+    type_DP = config.type_DP
+
+    for epoch in range(n_epochs):
+        start = time.time()
+        print('Epoch:', epoch + 1)
+        error_history = []
+        correct_count = 0
+        for n_data in range(party_list[0].data.shape[0]):
+
+            smashed_list = []
+            for i in range(len(party_list)):
+                smashed_list.append(party_list[i].forward_pass(problem='classification'))
+
+            smashed_numbers = []
+            for i in range(len(smashed_list)):
+                smashed_numbers.append(smashed_list[i][0])
+
+            # print(np.sum(smashed_numbers))
+
+            if type_HE:
+                encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
+            elif type_paillier:
+                encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
+                encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+            elif type_DP:
+                epsilon = 1.0  # Privacy budget
+                laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
+
+            main_server.reset()
+
+            if type_HE:
+                main_server_error = main_server.calculate_HE_loss(encrypted_numbers)
+            elif type_paillier:
+                main_server_error = main_server.calculate_paillier_loss([encrypted_number1, encrypted_number2])
+            elif type_DP:
+                main_server_error = main_server.calculate_DP_loss(smashed_numbers, laplace_mech)
+
+            parties_get_error(party_list, main_server_error)
+            parties_update_weights(party_list)
+
+            error_history.append(abs(party_list[0].error))
+            if main_server.correct == 1:
+                correct_count += 1
+
+        end = time.time()
+        print('Time:', end - start)
+
+        train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
+        train_loss_history.append(np.average(error_history))
+
+        parties_coefs = []
+        parties_biases = []
+        for party in party_list:
+            parties_coefs.append(party.weights)
+            parties_biases.append(party.bias)
+
+
+        test_accuracy, test_loss = test_HE_binary_classification(len(party_list), X_test, y_test,
+                                                                 parties_coefs, parties_biases, )
+
+        test_loss_history.append(test_loss)
+        test_accuracy_history.append(test_accuracy)
+
+        parties_reset(party_list)
+        main_server.reset_round()
+
+    if dataset_name == 'ionosphere':
+        new_df_y_train = pd.DataFrame()
+        new_df_y_test = pd.DataFrame()
+        class_mapping = {0: 'b', 1: 'g'}
+        new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
+        new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
+
+    # input_shape = 0
+    # for i in range(len(party_list)):
+    #     input_shape += len(party_list[i].weights)
+    # baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_mlp_binary_baseline(
+    #     n_epochs,
+    #     X_train,
+    #     y_train,
+    #     X_test,
+    #     y_test,
+    #     input_shape=input_shape,
+    #     output_shape=1,
+    #     dataset_name=dataset_name)
+    #
+    # figure_for_classification('Loss', train_loss_history, test_loss_history,
+    #                           baseline_train_loss, baseline_test_loss, dataset_name=dataset_name)
+    # figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history,
+    #                           baseline_train_accuracy, baseline_test_accuracy, dataset_name=dataset_name)
+
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history
+
+
+def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):
+    n_features = X_test.shape[1]
+    column_share = n_features // n_parties
+    extra_columns = n_features % n_parties
+
+    type_HE = config.type_HE
+    type_paillier = config.type_paillier
+    type_DP = config.type_DP
+
+    parties_data = []
+    parties = []
+
+    for i in range(n_parties):
+        if i == n_parties - 1:
+            data_party = X_test.iloc[:, i * column_share:]
+        else:
+            data_party = X_test.iloc[:, i * column_share:(i + 1) * column_share]
+        parties_data.append(data_party)
+
+    for i in range(n_parties):
+        parties.append(client.Client(name=f'party_test{i + 1}',
+                                     weights=party_coefs[i],
+                                     bias=party_biases[i],
+                                     data=parties_data[i],
+                                     lead=0))
+
+    count_test_data = 0
+    count_correct = 0
+    test_loss_list = []
+
+    for n_data in range(len(parties[0].data)):
+        smashed_list = []
+        for i in range(len(parties)):
+            smashed_list.append(parties[i].forward_pass(problem='classification'))
+
+        smashed_numbers = []
+        for i in range(len(smashed_list)):
+            smashed_numbers.append(smashed_list[i][0])
+
+        if type_HE:
+            encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
+        elif type_paillier:
+            encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
+            encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+        elif type_DP:
+            epsilon = 1.0  # Privacy budget
+            laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
+
+        label_for_test = y_test.loc[count_test_data]
+        label_for_test = label_for_test.to_numpy()
+        label_for_test = label_for_test[0]
+
+        if type_DP:
+            noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
+            a = sigmoid(noisy_sum)
+            test_loss_list.append(abs(a - label_for_test))
+
+        elif type_HE:
+            encrypted_sum = encrypted_numbers[0]
+            for enc_num in encrypted_numbers[1:]:
+                encrypted_sum += enc_num
+
+            decrypted_sum = np.float64(encrypted_sum.decrypt()[0])
+            a = sigmoid(decrypted_sum)
+            test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
             a = 1
