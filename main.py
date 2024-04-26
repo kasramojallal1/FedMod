@@ -88,6 +88,8 @@ if __name__ == "__main__":
             server_list=server_list, main_server=main_server, X_train=X_train,
             y_train=y_train, X_test=X_test, y_test=y_test)
 
+        print(f"HE Train Loss: {train_loss_HE}")
+
 
     elif run_dataset_3_HE:
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
