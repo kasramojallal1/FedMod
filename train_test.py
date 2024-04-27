@@ -974,18 +974,24 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         label_for_test = label_for_test.to_numpy()
         label_for_test = label_for_test[0]
 
-        if type_DP:
-            noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
-            a = sigmoid(noisy_sum)
-            test_loss_list.append(abs(a - label_for_test))
-
-        elif type_HE:
+        if type_HE:
             encrypted_sum = encrypted_numbers[0]
             for enc_num in encrypted_numbers[1:]:
                 encrypted_sum += enc_num
 
             decrypted_sum = np.float64(encrypted_sum.decrypt()[0])
             a = sigmoid(decrypted_sum)
+            test_loss_list.append(abs(a - label_for_test))
+
+        elif type_paillier:
+            encrypted_sum = encrypted_number1 + encrypted_number2
+            decrypted_sum = config.private_key.decrypt(encrypted_sum)
+            a = sigmoid(decrypted_sum)
+            test_loss_list.append(abs(a - label_for_test))
+
+        elif type_DP:
+            noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
+            a = sigmoid(noisy_sum)
             test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:

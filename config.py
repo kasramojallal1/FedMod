@@ -23,9 +23,9 @@ context = ts.context(ts.SCHEME_TYPE.CKKS,
 context.global_scale = global_scale = 2 ** 10
 context.generate_galois_keys()
 
-key_size = 2048
-public_key, private_key = paillier.generate_paillier_keypair()
+key_size = 256
+public_key, private_key = paillier.generate_paillier_keypair(n_length=key_size)
 
-type_HE = True
-type_paillier = False
+type_HE = False
+type_paillier = True
 type_DP = False
