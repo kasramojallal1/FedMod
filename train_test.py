@@ -154,7 +154,7 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
         model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
 
     for epoch in range(n_epochs):
-        print('Epoch:', epoch + 1)
+        print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch+1}')
         history = model_tf.fit(X_train, y_train, epochs=1, batch_size=1, verbose=0)
 
         train_loss = history.history['loss'][0]
@@ -720,7 +720,7 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
     test_loss_history = []
 
     for epoch in range(n_epochs):
-        print('Epoch:', epoch + 1)
+        print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch+1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -781,20 +781,8 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
     input_shape = 0
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
-    baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_mlp_binary_baseline(
-        n_epochs,
-        X_train,
-        y_train,
-        X_test,
-        y_test,
-        input_shape=input_shape,
-        output_shape=1,
-        dataset_name=dataset_name)
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history,
-                              baseline_train_loss, baseline_test_loss, dataset_name=dataset_name)
-    figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history,
-                              baseline_train_accuracy, baseline_test_accuracy, dataset_name=dataset_name)
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape
 
 
 def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):
@@ -863,8 +851,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
     type_DP = config.type_DP
 
     for epoch in range(n_epochs):
-        start = time.time()
-        print('Epoch:', epoch + 1)
+        print(f'Dataset:{dataset_name}, Alg:HE, Epoch:{epoch+1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -876,8 +863,6 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             smashed_numbers = []
             for i in range(len(smashed_list)):
                 smashed_numbers.append(smashed_list[i][0])
-
-            # print(np.sum(smashed_numbers))
 
             if type_HE:
                 encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
@@ -903,9 +888,6 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:
                 correct_count += 1
-
-        end = time.time()
-        print('Time:', end - start)
 
         train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
         train_loss_history.append(np.average(error_history))
@@ -933,25 +915,11 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
         new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
         new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
 
-    # input_shape = 0
-    # for i in range(len(party_list)):
-    #     input_shape += len(party_list[i].weights)
-    # baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_mlp_binary_baseline(
-    #     n_epochs,
-    #     X_train,
-    #     y_train,
-    #     X_test,
-    #     y_test,
-    #     input_shape=input_shape,
-    #     output_shape=1,
-    #     dataset_name=dataset_name)
-    #
-    # figure_for_classification('Loss', train_loss_history, test_loss_history,
-    #                           baseline_train_loss, baseline_test_loss, dataset_name=dataset_name)
-    # figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history,
-    #                           baseline_train_accuracy, baseline_test_accuracy, dataset_name=dataset_name)
+    input_shape = 0
+    for i in range(len(party_list)):
+        input_shape += len(party_list[i].weights)
 
-    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape
 
 
 def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):

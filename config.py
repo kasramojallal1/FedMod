@@ -9,7 +9,7 @@ learning_rate = 0.001
 regularization_rate = 0.001
 
 plot_intervals = 5
-n_parties = 10
+n_parties = 2
 n_servers = 2
 
 # poly_modulus_degree = 16384
@@ -23,6 +23,7 @@ context = ts.context(ts.SCHEME_TYPE.CKKS,
 context.global_scale = global_scale = 2 ** 10
 context.generate_galois_keys()
 
+key_size = 2048
 public_key, private_key = paillier.generate_paillier_keypair()
 
 type_HE = True

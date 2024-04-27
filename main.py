@@ -4,11 +4,15 @@ import train_test
 import config
 
 import os
+import time
 import numpy as np
 import pandas as pd
 import random
 import plotly.io as pio
 import tensorflow as tf
+
+import plotly.express as px
+import plotly.graph_objects as go
 
 pio.renderers.default = "browser"
 pd.set_option('display.max_columns', None)
@@ -26,11 +30,43 @@ dataset_address_4 = './datasets/phishing.arff'
 run_dataset_1 = False
 run_dataset_2 = False
 run_dataset_2_new = False
-run_dataset_2_HE = True
+run_dataset_2_compare = True
 run_dataset_3 = False
 run_dataset_3_new = False
 run_dataset_3_HE = False
 run_dataset_4 = False
+
+
+def create_graphs_classification(history, dataset_name, type_name):
+    trace1 = go.Scatter(y=history[0], mode='lines', name='FedMod',
+                        line=dict(color='blue', width=3))
+    trace2 = go.Scatter(y=history[1], mode='lines', name='HE',
+                        line=dict(color='red', width=3))
+    trace3 = go.Scatter(y=history[2], mode='lines', name='Baseline',
+                        line=dict(color='purple', width=3))
+
+    markers_interval = config.plot_intervals
+    trace1_markers = train_test.add_markers_at_intervals(history[0], 'diamond', 'blue',
+                                                         markers_interval)
+    trace2_markers = train_test.add_markers_at_intervals(history[1], 'diamond', 'red',
+                                                         markers_interval)
+    trace3_markers = train_test.add_markers_at_intervals(history[2], 'diamond', 'purple',
+                                                         markers_interval)
+
+    layout = go.Layout(title=f'Dataset: {dataset_name}',
+                       xaxis=dict(title='Epochs',
+                                  tickvals=list(range(0, len(history[0]) + 1, markers_interval)),
+                                  showgrid=True,
+                                  zeroline=False),
+                       yaxis=dict(title=type_name),
+                       legend=dict(x=0, y=1, traceorder='normal', orientation='h'),
+                       plot_bgcolor='rgba(242, 242, 242, 1)')
+
+    fig1 = go.Figure(
+        data=[trace1, trace2, trace3, trace1_markers, trace2_markers, trace3_markers],
+        layout=layout)
+    fig1.show()
+
 
 if __name__ == "__main__":
     if run_dataset_1:
@@ -75,20 +111,44 @@ if __name__ == "__main__":
                                                      server_list=server_list, main_server=main_server, X_train=X_train,
                                                      y_train=y_train, X_test=X_test, y_test=y_test)
 
-    elif run_dataset_2_HE:
+    elif run_dataset_2_compare:
+        n_epochs = 35
+        dataset_name = 'heart'
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
+
         party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
                                                                   'binary-classification', 2, X_train, y_train)
-        train_loss_HE, test_loss_HE, train_accuracy_HE, test_accuracy_HE = train_test.train_HE_binary_classification(
-            dataset_name='heart', n_epochs=40, party_list=party_list,
+        start_HE = time.time()
+        train_loss_HE, test_loss_HE, train_accuracy_HE, test_accuracy_HE, input_shape1 = train_test.train_HE_binary_classification(
+            dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
             server_list=server_list, main_server=main_server, X_train=X_train,
             y_train=y_train, X_test=X_test, y_test=y_test)
-        train_loss_FedMod, test_loss_FedMod, train_accuracy_FedMod, test_accuracy_FedMod = train_test.train_model_binary_classification(
-            dataset_name='heart', n_epochs=40, party_list=party_list,
-            server_list=server_list, main_server=main_server, X_train=X_train,
-            y_train=y_train, X_test=X_test, y_test=y_test)
+        end_HE = time.time()
 
-        print(f"HE Train Loss: {train_loss_HE}")
+        party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
+                                                                  'binary-classification', 2, X_train, y_train)
+        start_FedMod = time.time()
+        train_loss_FedMod, test_loss_FedMod, train_accuracy_FedMod, test_accuracy_FedMod, input_shape2 = train_test.train_model_binary_classification(
+            dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
+            server_list=server_list, main_server=main_server, X_train=X_train,
+            y_train=y_train, X_test=X_test, y_test=y_test)
+        end_FedMod = time.time()
+
+        start_baseline = time.time()
+        baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_test.train_mlp_binary_baseline(
+            n_epochs=n_epochs, X_train=X_train, y_train=y_train,
+            X_test=X_test, y_test=y_test, input_shape=input_shape1, output_shape=1,
+            dataset_name=dataset_name)
+        end_baseline = time.time()
+
+        create_graphs_classification([train_loss_FedMod, train_loss_HE, baseline_train_loss],
+                                     dataset_name='heart', type_name='Train Loss')
+        create_graphs_classification([train_accuracy_FedMod, train_accuracy_HE, baseline_train_accuracy],
+                                     dataset_name='heart', type_name='Train Accuracy')
+        create_graphs_classification([test_loss_FedMod, test_loss_HE, baseline_test_loss],
+                                     dataset_name='heart', type_name='Loss')
+        create_graphs_classification([test_accuracy_FedMod, test_accuracy_HE, baseline_test_accuracy],
+                                     dataset_name='heart', type_name='Accuracy')
 
 
     elif run_dataset_3_HE:
@@ -99,15 +159,22 @@ if __name__ == "__main__":
                                                   server_list=server_list, main_server=main_server, X_train=X_train,
                                                   y_train=y_train, X_test=X_test, y_test=y_test)
 
-    # if run_dataset_1 or run_dataset_2 or run_dataset_3 or run_dataset_4:
-    #     print("------ FedMod ------")
-    #     print("--- FedMod: %s secs ---" % (run_time))
-    #     print(f"Memory Usage: {memory_usage} KB")
-    #     print(f"CPU Time Used: {cpu_usage} seconds")
 
-    print('--------------------------------------------------')
+    print('--------------------------------------------')
+    print(f"FedMod: {end_FedMod - start_FedMod} secs")
+    print(f"HE: {end_HE - start_HE} secs")
+    print(f"Baseline: {end_baseline - start_baseline} secs")
+    print('--------------------------------------------')
+    print(f'FedMod Accuracy: {test_accuracy_FedMod[-1]}')
+    print(f'HE Accuracy: {test_accuracy_HE[-1]}')
+    print(f'Baseline Accuracy: {baseline_test_accuracy[-1]}')
+    print('--------------------------------------------')
     print(f'Learning Rate: {config.learning_rate}')
     print(f'Regularization Rate: {config.regularization_rate}')
     print(f'K_value: {config.k_value}')
     print(f'N# Parties: {config.n_parties}')
     print(f'N# Servers: {config.n_servers}')
+    print(f'Poly Modulus Degree: {config.poly_mod_degree}')
+    print(f'Coeff Mod Bit Sizes: {config.coeff_mod_bit_sizes}')
+    print(f'Context Global Scale: {config.context.global_scale}')
+    print('--------------------------------------------')
