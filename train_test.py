@@ -8,6 +8,8 @@ import pandas as pd
 import sympy
 import secrets
 import resource
+import sys
+
 import tenseal as ts
 from phe import paillier
 from diffprivlib.mechanisms import Laplace
@@ -16,13 +18,8 @@ import plotly.io as pio
 import plotly.express as px
 import plotly.graph_objects as go
 
-from sklearn import preprocessing
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, log_loss
-from tensorflow.keras.utils import to_categorical
-
 import tensorflow as tf
+from tensorflow.keras.utils import to_categorical
 
 
 def sigmoid(x):
@@ -849,6 +846,8 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
     type_HE = config.type_HE
     type_paillier = config.type_paillier
     type_DP = config.type_DP
+    if not type_HE and not type_paillier and not type_DP:
+        config.type_HE = True
 
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Alg:HE, Epoch:{epoch+1}')
@@ -930,6 +929,8 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
     type_HE = config.type_HE
     type_paillier = config.type_paillier
     type_DP = config.type_DP
+    if not type_HE and not type_paillier and not type_DP:
+        config.type_HE = True
 
     parties_data = []
     parties = []

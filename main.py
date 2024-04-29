@@ -30,10 +30,10 @@ dataset_address_4 = './datasets/phishing.arff'
 run_dataset_1 = False
 run_dataset_2 = False
 run_dataset_2_new = False
-run_dataset_2_compare = True
+run_dataset_2_compare = False
 run_dataset_3 = False
 run_dataset_3_new = False
-run_dataset_3_HE = False
+run_dataset_3_compare = True
 run_dataset_4 = False
 
 
@@ -142,22 +142,52 @@ if __name__ == "__main__":
         end_baseline = time.time()
 
         create_graphs_classification([train_loss_FedMod, train_loss_HE, baseline_train_loss],
-                                     dataset_name='heart', type_name='Train Loss')
+                                     dataset_name=dataset_name, type_name='Train Loss')
         create_graphs_classification([train_accuracy_FedMod, train_accuracy_HE, baseline_train_accuracy],
-                                     dataset_name='heart', type_name='Train Accuracy')
+                                     dataset_name=dataset_name, type_name='Train Accuracy')
         create_graphs_classification([test_loss_FedMod, test_loss_HE, baseline_test_loss],
-                                     dataset_name='heart', type_name='Loss')
+                                     dataset_name=dataset_name, type_name='Loss')
         create_graphs_classification([test_accuracy_FedMod, test_accuracy_HE, baseline_test_accuracy],
-                                     dataset_name='heart', type_name='Accuracy')
+                                     dataset_name=dataset_name, type_name='Accuracy')
 
-
-    elif run_dataset_3_HE:
+    elif run_dataset_3_compare:
+        n_epochs = 360
+        dataset_name = 'ionosphere'
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
+
         party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
                                                                   'binary-classification', 2, X_train, y_train)
-        train_test.train_HE_binary_classification(dataset_name='ionosphere', n_epochs=360, party_list=party_list,
-                                                  server_list=server_list, main_server=main_server, X_train=X_train,
-                                                  y_train=y_train, X_test=X_test, y_test=y_test)
+        start_HE = time.time()
+        train_loss_HE, test_loss_HE, train_accuracy_HE, test_accuracy_HE, input_shape1 = train_test.train_HE_binary_classification(
+            dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
+            server_list=server_list, main_server=main_server, X_train=X_train,
+            y_train=y_train, X_test=X_test, y_test=y_test)
+        end_HE = time.time()
+
+        party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
+                                                                  'binary-classification', 2, X_train, y_train)
+        start_FedMod = time.time()
+        train_loss_FedMod, test_loss_FedMod, train_accuracy_FedMod, test_accuracy_FedMod, input_shape2 = train_test.train_model_binary_classification(
+            dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
+            server_list=server_list, main_server=main_server, X_train=X_train,
+            y_train=y_train, X_test=X_test, y_test=y_test)
+        end_FedMod = time.time()
+
+        start_baseline = time.time()
+        baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_test.train_mlp_binary_baseline(
+            n_epochs=n_epochs, X_train=X_train, y_train=y_train,
+            X_test=X_test, y_test=y_test, input_shape=input_shape1, output_shape=1,
+            dataset_name=dataset_name)
+        end_baseline = time.time()
+
+        create_graphs_classification([train_loss_FedMod, train_loss_HE, baseline_train_loss],
+                                     dataset_name=dataset_name, type_name='Train Loss')
+        create_graphs_classification([train_accuracy_FedMod, train_accuracy_HE, baseline_train_accuracy],
+                                     dataset_name=dataset_name, type_name='Train Accuracy')
+        create_graphs_classification([test_loss_FedMod, test_loss_HE, baseline_test_loss],
+                                     dataset_name=dataset_name, type_name='Loss')
+        create_graphs_classification([test_accuracy_FedMod, test_accuracy_HE, baseline_test_accuracy],
+                                     dataset_name=dataset_name, type_name='Accuracy')
 
 
     print('--------------------------------------------')
@@ -174,7 +204,7 @@ if __name__ == "__main__":
     print(f'K_value: {config.k_value}')
     print(f'N# Parties: {config.n_parties}')
     print(f'N# Servers: {config.n_servers}')
-    print(f'Poly Modulus Degree: {config.poly_mod_degree}')
-    print(f'Coeff Mod Bit Sizes: {config.coeff_mod_bit_sizes}')
-    print(f'Context Global Scale: {config.context.global_scale}')
+    # print(f'Poly Modulus Degree: {config.poly_mod_degree}')
+    # print(f'Coeff Mod Bit Sizes: {config.coeff_mod_bit_sizes}')
+    # print(f'Context Global Scale: {config.context.global_scale}')
     print('--------------------------------------------')
