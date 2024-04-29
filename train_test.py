@@ -716,6 +716,8 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
     test_accuracy_history = []
     test_loss_history = []
 
+    size_of_transfer_data = 0
+
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch+1}')
         error_history = []
@@ -743,12 +745,20 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
 
             middle_servers_error = main_server.error
             parties_get_error(party_list, middle_servers_error)
-
             parties_update_weights(party_list)
 
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:
                 correct_count += 1
+
+            if n_data == 0:
+                for i in range(len(party_list)):
+                    for j in range(len(server_list)):
+                        size_of_transfer_data += sys.getsizeof(party_shares[i][j])
+                for i in range(len(server_list)):
+                    size_of_transfer_data += sys.getsizeof(sumed_data[i])
+                for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(main_server.error)
 
         train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
         train_loss_history.append(np.average(error_history))
@@ -779,7 +789,7 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
 
-    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
 
 
 def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):
@@ -843,6 +853,8 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
     test_accuracy_history = []
     test_loss_history = []
 
+    size_of_transfer_data = 0
+
     type_HE = config.type_HE
     type_paillier = config.type_paillier
     type_DP = config.type_DP
@@ -875,13 +887,31 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             main_server.reset()
 
             if type_HE:
+                if n_data == 0:
+                    for i in range(len(party_list)):
+                        size_of_transfer_data += sys.getsizeof(encrypted_numbers[i])
                 main_server_error = main_server.calculate_HE_loss(encrypted_numbers)
             elif type_paillier:
+                if n_data == 0:
+                    for i in range(len(party_list)):
+                        size_of_transfer_data += sys.getsizeof(encrypted_number1)
+                        size_of_transfer_data += sys.getsizeof(encrypted_number2)
                 main_server_error = main_server.calculate_paillier_loss([encrypted_number1, encrypted_number2])
             elif type_DP:
+                if n_data == 0:
+                    for i in range(len(party_list)):
+                        size_of_transfer_data += sys.getsizeof(smashed_numbers[i])
                 main_server_error = main_server.calculate_DP_loss(smashed_numbers, laplace_mech)
 
             parties_get_error(party_list, main_server_error)
+            # if n_data == 0:
+            #     error_enc = config.public_key.encrypt(main_server_error)
+            #     for i in range(len(party_list)):
+            #         size_of_transfer_data += sys.getsizeof(error_enc)
+            if n_data == 0:
+                for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(main_server_error)
+
             parties_update_weights(party_list)
 
             error_history.append(abs(party_list[0].error))
@@ -918,7 +948,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
 
-    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
 
 
 def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):

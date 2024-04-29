@@ -30,10 +30,10 @@ dataset_address_4 = './datasets/phishing.arff'
 run_dataset_1 = False
 run_dataset_2 = False
 run_dataset_2_new = False
-run_dataset_2_compare = False
+run_dataset_2_compare = True
 run_dataset_3 = False
 run_dataset_3_new = False
-run_dataset_3_compare = True
+run_dataset_3_compare = False
 run_dataset_4 = False
 
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
                                                                   'binary-classification', 2, X_train, y_train)
         start_HE = time.time()
-        train_loss_HE, test_loss_HE, train_accuracy_HE, test_accuracy_HE, input_shape1 = train_test.train_HE_binary_classification(
+        train_loss_HE, test_loss_HE, train_accuracy_HE, test_accuracy_HE, input_shape1, size_of_HE_data_transfer = train_test.train_HE_binary_classification(
             dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
             server_list=server_list, main_server=main_server, X_train=X_train,
             y_train=y_train, X_test=X_test, y_test=y_test)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
                                                                   'binary-classification', 2, X_train, y_train)
         start_FedMod = time.time()
-        train_loss_FedMod, test_loss_FedMod, train_accuracy_FedMod, test_accuracy_FedMod, input_shape2 = train_test.train_model_binary_classification(
+        train_loss_FedMod, test_loss_FedMod, train_accuracy_FedMod, test_accuracy_FedMod, input_shape2, size_of_FedMod_data_transfer = train_test.train_model_binary_classification(
             dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
             server_list=server_list, main_server=main_server, X_train=X_train,
             y_train=y_train, X_test=X_test, y_test=y_test)
@@ -190,14 +190,21 @@ if __name__ == "__main__":
                                      dataset_name=dataset_name, type_name='Accuracy')
 
 
+    size_of_HE_data_transfer = size_of_HE_data_transfer / 1024
+    size_of_FedMod_data_transfer = size_of_FedMod_data_transfer / 1024
+
+
     print('--------------------------------------------')
-    print(f"FedMod: {end_FedMod - start_FedMod} secs")
-    print(f"HE: {end_HE - start_HE} secs")
-    print(f"Baseline: {end_baseline - start_baseline} secs")
+    print(f"FedMod: {round((end_FedMod - start_FedMod), 3)} secs")
+    print(f"HE: {round((end_HE - start_HE), 3)} secs")
+    print(f"Baseline: {round((end_baseline - start_baseline), 3)} secs")
     print('--------------------------------------------')
-    print(f'FedMod Accuracy: {test_accuracy_FedMod[-1]}')
-    print(f'HE Accuracy: {test_accuracy_HE[-1]}')
-    print(f'Baseline Accuracy: {baseline_test_accuracy[-1]}')
+    print(f'FedMod Accuracy: {round((test_accuracy_FedMod[-1]), 3)}')
+    print(f'HE Accuracy: {round((test_accuracy_HE[-1]), 3)}')
+    print(f'Baseline Accuracy: {round((baseline_test_accuracy[-1]), 3)}')
+    print('--------------------------------------------')
+    print(f'Size of FE Data Transfer: {round(size_of_HE_data_transfer, 3)} KB')
+    print(f'Size of FedMod Data Transfer: {round(size_of_FedMod_data_transfer, 3)} KB')
     print('--------------------------------------------')
     print(f'Learning Rate: {config.learning_rate}')
     print(f'Regularization Rate: {config.regularization_rate}')
