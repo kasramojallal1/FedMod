@@ -23,6 +23,14 @@ np.random.seed(43)
 tf.random.set_seed(43)
 random.seed(45)
 
+name_of_encryption = None
+if config.type_HE:
+    name_of_encryption = 'HE'
+elif config.type_paillier:
+    name_of_encryption = 'FE'
+elif config.type_DP:
+    name_of_encryption = 'DP'
+
 dataset_address_1 = './datasets/boston_housing.csv'
 dataset_address_2 = './datasets/heart.csv'
 dataset_address_4 = './datasets/phishing.arff'
@@ -40,7 +48,7 @@ run_dataset_4 = False
 def create_graphs_classification(history, dataset_name, type_name):
     trace1 = go.Scatter(y=history[0], mode='lines', name='FedMod',
                         line=dict(color='blue', width=3))
-    trace2 = go.Scatter(y=history[1], mode='lines', name='HE',
+    trace2 = go.Scatter(y=history[1], mode='lines', name=name_of_encryption,
                         line=dict(color='red', width=3))
     trace3 = go.Scatter(y=history[2], mode='lines', name='Baseline',
                         line=dict(color='purple', width=3))

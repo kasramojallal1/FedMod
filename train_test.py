@@ -22,6 +22,15 @@ import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 
 
+name_of_encryption = None
+if config.type_HE:
+    name_of_encryption = 'HE'
+elif config.type_paillier:
+    name_of_encryption = 'FE'
+elif config.type_DP:
+    name_of_encryption = 'DP'
+
+
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
@@ -862,7 +871,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
         config.type_HE = True
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:HE, Epoch:{epoch+1}')
+        print(f'Dataset:{dataset_name}, Alg:{name_of_encryption}, Epoch:{epoch+1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -875,11 +884,14 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             for i in range(len(smashed_list)):
                 smashed_numbers.append(smashed_list[i][0])
 
+            encrypted_functional = []
             if type_HE:
                 encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
             elif type_paillier:
-                encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
-                encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+                # encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
+                # encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+                for i in range(len(party_list)):
+                    encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
             elif type_DP:
                 epsilon = 1.0  # Privacy budget
                 laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
@@ -894,9 +906,11 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             elif type_paillier:
                 if n_data == 0:
                     for i in range(len(party_list)):
-                        size_of_transfer_data += sys.getsizeof(encrypted_number1)
-                        size_of_transfer_data += sys.getsizeof(encrypted_number2)
-                main_server_error = main_server.calculate_paillier_loss([encrypted_number1, encrypted_number2])
+                        # size_of_transfer_data += sys.getsizeof(encrypted_number1)
+                        # size_of_transfer_data += sys.getsizeof(encrypted_number2)
+                        size_of_transfer_data += sys.getsizeof(encrypted_functional[i])
+                # main_server_error = main_server.calculate_paillier_loss([encrypted_number1, encrypted_number2])
+                main_server_error = main_server.calculate_paillier_loss(encrypted_functional)
             elif type_DP:
                 if n_data == 0:
                     for i in range(len(party_list)):
@@ -992,11 +1006,14 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         for i in range(len(smashed_list)):
             smashed_numbers.append(smashed_list[i][0])
 
+        encrypted_functional = []
         if type_HE:
             encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
         elif type_paillier:
-            encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
-            encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+            # encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
+            # encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+            for i in range(n_parties):
+                encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
         elif type_DP:
             epsilon = 1.0  # Privacy budget
             laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
@@ -1015,7 +1032,10 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             test_loss_list.append(abs(a - label_for_test))
 
         elif type_paillier:
-            encrypted_sum = encrypted_number1 + encrypted_number2
+            # encrypted_sum = encrypted_number1 + encrypted_number2
+            encrypted_sum = 0
+            for i in range(n_parties):
+                encrypted_sum += encrypted_functional[i]
             decrypted_sum = config.private_key.decrypt(encrypted_sum)
             a = sigmoid(decrypted_sum)
             test_loss_list.append(abs(a - label_for_test))

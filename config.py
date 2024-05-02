@@ -9,7 +9,7 @@ learning_rate = 0.001
 regularization_rate = 0.001
 
 plot_intervals = 60
-n_parties = 2
+n_parties = 6
 n_servers = 2
 
 # poly_modulus_degree = 16384
