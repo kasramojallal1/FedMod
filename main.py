@@ -242,6 +242,7 @@ if __name__ == "__main__":
     size_of_FedMod_data_transfer = size_of_FedMod_data_transfer / 1024
 
 
+    #TODO
     print('--------------------------------------------')
     print(f"FedMod: {round((end_FedMod - start_FedMod), 3)} secs")
     print(f"HE: {round((end_HE - start_HE), 3)} secs")
