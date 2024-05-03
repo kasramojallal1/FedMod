@@ -25,9 +25,9 @@ random.seed(45)
 
 name_of_encryption = None
 if config.type_HE:
-    name_of_encryption = 'HE'
+    name_of_encryption = 'Tenseal'
 elif config.type_paillier:
-    name_of_encryption = 'FE'
+    name_of_encryption = 'Paillier'
 elif config.type_DP:
     name_of_encryption = 'DP'
 
@@ -208,10 +208,10 @@ if __name__ == "__main__":
     print(f"Baseline: {round((end_baseline - start_baseline), 3)} secs")
     print('--------------------------------------------')
     print(f'FedMod Accuracy: {round((test_accuracy_FedMod[-1]), 3)}')
-    print(f'HE Accuracy: {round((test_accuracy_HE[-1]), 3)}')
+    print(f'{name_of_encryption} Accuracy: {round((test_accuracy_HE[-1]), 3)}')
     print(f'Baseline Accuracy: {round((baseline_test_accuracy[-1]), 3)}')
     print('--------------------------------------------')
-    print(f'Size of FE Data Transfer: {round(size_of_HE_data_transfer, 3)} KB')
+    print(f'Size of {name_of_encryption} Data Transfer: {round(size_of_HE_data_transfer, 3)} KB')
     print(f'Size of FedMod Data Transfer: {round(size_of_FedMod_data_transfer, 3)} KB')
     print('--------------------------------------------')
     print(f'Learning Rate: {config.learning_rate}')

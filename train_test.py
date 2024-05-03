@@ -24,9 +24,9 @@ from tensorflow.keras.utils import to_categorical
 
 name_of_encryption = None
 if config.type_HE:
-    name_of_encryption = 'HE'
+    name_of_encryption = 'Tenseal'
 elif config.type_paillier:
-    name_of_encryption = 'FE'
+    name_of_encryption = 'Paillier'
 elif config.type_DP:
     name_of_encryption = 'DP'
 
