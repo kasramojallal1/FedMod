@@ -1,6 +1,8 @@
 import secrets
 from phe import paillier
 import tenseal as ts
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
@@ -9,7 +11,7 @@ learning_rate = 0.001
 regularization_rate = 0.001
 
 plot_intervals = 60
-n_parties = 10
+n_parties = 2
 n_servers = 2
 
 # poly_modulus_degree = 16384
@@ -29,3 +31,8 @@ public_key, private_key = paillier.generate_paillier_keypair(n_length=key_size)
 type_HE = False
 type_paillier = True
 type_DP = False
+
+key_FE = RSA.generate(1024)
+public_key_FE = key_FE.publickey()
+encryptor = PKCS1_OAEP.new(public_key_FE)
+decryptor = PKCS1_OAEP.new(key_FE)

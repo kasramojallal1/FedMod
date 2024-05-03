@@ -21,6 +21,8 @@ import plotly.graph_objects as go
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 name_of_encryption = None
 if config.type_HE:
@@ -29,6 +31,23 @@ elif config.type_paillier:
     name_of_encryption = 'Paillier'
 elif config.type_DP:
     name_of_encryption = 'DP'
+
+
+def encrypt_vector(vector, encryptor, scale_factor=1000000):
+    """Encrypt a vector element-wise, scaling floats to integers."""
+    # Assuming the largest negative value that we might deal with for proper offset
+    offset = min(0, min(vector)) * scale_factor
+    scaled_vector = [int((v - offset) * scale_factor) for v in vector]
+    encrypted_vector = [encryptor.encrypt(v.to_bytes((v.bit_length() + 7) // 8, byteorder='big', signed=False)) for v in
+                        scaled_vector]
+    return encrypted_vector, offset
+
+
+def compute_inner_product(encrypted_vector, weights, decryptor, scale_factor=1000000, offset=0):
+    """Decrypt and compute the inner product, scaling back to floats and adjusting for offset."""
+    decrypted_vector = [int.from_bytes(decryptor.decrypt(v), byteorder='big', signed=False) for v in encrypted_vector]
+    adjusted_vector = [(v / scale_factor) + offset for v in decrypted_vector]
+    return np.dot(adjusted_vector, weights)
 
 
 def sigmoid(x):
@@ -99,7 +118,8 @@ def add_markers_at_intervals(y_data, marker_symbol, marker_color, interval=50):
     )
 
 
-def figure_for_classification(type_name, train_history, test_history, baseline_train_history, baseline_test_history, dataset_name=None):
+def figure_for_classification(type_name, train_history, test_history, baseline_train_history, baseline_test_history,
+                              dataset_name=None):
     trace1 = go.Scatter(y=train_history, mode='lines', name='FedMod Train',
                         line=dict(color='rgba(100, 149, 237, 1)', width=2, dash='solid'))
     trace2 = go.Scatter(y=test_history, mode='lines', name='FedMod Test',
@@ -126,7 +146,9 @@ def figure_for_classification(type_name, train_history, test_history, baseline_t
                        legend=dict(x=0, y=1, traceorder='normal', orientation='h'),
                        plot_bgcolor='rgba(242, 242, 242, 1)')
 
-    fig1 = go.Figure(data=[trace1, trace2, trace3, trace4, trace1_markers, trace2_markers, trace3_markers, trace4_markers], layout=layout)
+    fig1 = go.Figure(
+        data=[trace1, trace2, trace3, trace4, trace1_markers, trace2_markers, trace3_markers, trace4_markers],
+        layout=layout)
     fig1.show()
 
     print('------' + type_name + '------')
@@ -160,7 +182,7 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
         model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch+1}')
+        print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
         history = model_tf.fit(X_train, y_train, epochs=1, batch_size=1, verbose=0)
 
         train_loss = history.history['loss'][0]
@@ -354,7 +376,8 @@ def train_parties_2(n_epochs, party_list, server_list, main_server, X_train, y_t
         output_shape=1,
         dataset_name='heart')
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss, dataset_name='heart')
+    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss,
+                              dataset_name='heart')
     figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history, baseline_train_accuracy,
                               baseline_test_accuracy, dataset_name='heart')
 
@@ -509,7 +532,8 @@ def train_parties_3(n_epochs, party1, party2, server1, server2, main_server, X_t
         output_shape=1,
         dataset_name='ionosphere')
 
-    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss, dataset_name='ionosphere')
+    figure_for_classification('Loss', train_loss_history, test_loss_history, baseline_train_loss, baseline_test_loss,
+                              dataset_name='ionosphere')
     figure_for_classification('Accuracy', train_accuracy_history, test_accuracy_history, baseline_train_accuracy,
                               baseline_test_accuracy, dataset_name='ionosphere')
 
@@ -609,7 +633,7 @@ def train_parties_4(n_epochs, party_list, server_list, main_server, X_train, y_t
 
             temp_error = 0
             for i in range(n_classes):
-                temp_error += abs(main_server.error_multi[i])/3
+                temp_error += abs(main_server.error_multi[i]) / 3
             error_history.append(temp_error)
 
             if main_server.correct == 1:
@@ -705,7 +729,7 @@ def test_parties_4(X_test, y_test, party_coefs, party_biases, n_parties, n_class
                 loss_multi.append(abs(sigmoid_results[i - 1] - 1))
             else:
                 loss_multi.append(abs(sigmoid_results[i - 1] - 0))
-        test_loss_list.append(sum(loss_multi)/3)
+        test_loss_list.append(sum(loss_multi) / 3)
 
         if predict == label_for_test:
             count_correct += 1
@@ -728,7 +752,7 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
     size_of_transfer_data = 0
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch+1}')
+        print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch + 1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -856,7 +880,8 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
     return accuracy, loss
 
 
-def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train, X_test, y_test):
+def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
+                                   X_test, y_test):
     train_accuracy_history = []
     train_loss_history = []
     test_accuracy_history = []
@@ -871,7 +896,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
         config.type_HE = True
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:{name_of_encryption}, Epoch:{epoch+1}')
+        print(f'Dataset:{dataset_name}, Alg:{name_of_encryption}, Epoch:{epoch + 1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -940,7 +965,6 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
         for party in party_list:
             parties_coefs.append(party.weights)
             parties_biases.append(party.bias)
-
 
         test_accuracy, test_loss = test_HE_binary_classification(len(party_list), X_test, y_test,
                                                                  parties_coefs, parties_biases, )
@@ -1044,6 +1068,140 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
             a = sigmoid(noisy_sum)
             test_loss_list.append(abs(a - label_for_test))
+
+        if a > 0.5:
+            a = 1
+            if label_for_test == a:
+                count_correct += 1
+        else:
+            a = 0
+            if label_for_test == a:
+                count_correct += 1
+
+        count_test_data += 1
+
+    accuracy = count_correct / count_test_data
+    loss = np.average(test_loss_list)
+
+    return accuracy, loss
+
+
+def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
+                                   X_test, y_test):
+    train_accuracy_history = []
+    train_loss_history = []
+    test_accuracy_history = []
+    test_loss_history = []
+
+    for epoch in range(n_epochs):
+        print(f'Dataset:{dataset_name}, Alg:{name_of_encryption}, Epoch:{epoch + 1}')
+        error_history = []
+        correct_count = 0
+        for n_data in range(party_list[0].data.shape[0]):
+
+            encrypted_data_list = []
+            offset_list = []
+            for i in range(len(party_list)):
+                # data_for_round = party_list[i].give_data_for_round()
+                # print(data_for_round)
+                encrypted_data, offset = encrypt_vector(party_list[i].give_data_for_round(), config.encryptor)
+                offset_list.append(offset)
+                encrypted_data_list.append(encrypted_data)
+
+            main_server.reset()
+            main_server_error = main_server.calculate_FE_loss(party_list, encrypted_data_list, offset_list)
+
+            parties_get_error(party_list, main_server_error)
+            parties_update_weights(party_list)
+
+            error_history.append(abs(party_list[0].error))
+            if main_server.correct == 1:
+                correct_count += 1
+
+        train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
+        train_loss_history.append(np.average(error_history))
+
+        parties_coefs = []
+        parties_biases = []
+        for party in party_list:
+            parties_coefs.append(party.weights)
+            parties_biases.append(party.bias)
+
+        test_accuracy, test_loss = test_FE_binary_classification(len(party_list), X_test, y_test,
+                                                                 parties_coefs, parties_biases, party_list)
+
+        test_loss_history.append(test_loss)
+        test_accuracy_history.append(test_accuracy)
+
+        parties_reset(party_list)
+        main_server.reset_round()
+
+    if dataset_name == 'ionosphere':
+        new_df_y_train = pd.DataFrame()
+        new_df_y_test = pd.DataFrame()
+        class_mapping = {0: 'b', 1: 'g'}
+        new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
+        new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
+
+    input_shape = 0
+    for i in range(len(party_list)):
+        input_shape += len(party_list[i].weights)
+
+    #TODO
+    size_of_transfer_data = 0
+
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
+
+
+def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases, party_list):
+    n_features = X_test.shape[1]
+    column_share = n_features // n_parties
+    extra_columns = n_features % n_parties
+
+    parties_data = []
+    parties = []
+
+    for i in range(n_parties):
+        if i == n_parties - 1:
+            data_party = X_test.iloc[:, i * column_share:]
+        else:
+            data_party = X_test.iloc[:, i * column_share:(i + 1) * column_share]
+        parties_data.append(data_party)
+
+    for i in range(n_parties):
+        parties.append(client.Client(name=f'party_test{i + 1}',
+                                     weights=party_coefs[i],
+                                     bias=party_biases[i],
+                                     data=parties_data[i],
+                                     lead=0))
+
+    count_test_data = 0
+    count_correct = 0
+    test_loss_list = []
+
+    for n_data in range(len(parties[0].data)):
+
+        encrypted_data_list = []
+        offset_list = []
+        for i in range(len(party_list)):
+            encrypted_data, offset = encrypt_vector(parties[i].give_data_for_round(), config.encryptor)
+            offset_list.append(offset)
+            encrypted_data_list.append(encrypted_data)
+
+        intermediate_outputs = []
+        for i in range(len(party_list)):
+            intermediate_outputs.append(compute_inner_product(encrypted_data_list[i],
+                                                              party_list[i].weights,
+                                                              config.decryptor,
+                                                              offset=offset_list[i]))
+
+        label_for_test = y_test.loc[count_test_data]
+        label_for_test = label_for_test.to_numpy()
+        label_for_test = label_for_test[0]
+
+        FE_sum = np.sum(intermediate_outputs)
+        a = sigmoid(FE_sum)
+        test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
             a = 1

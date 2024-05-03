@@ -53,6 +53,15 @@ class Client:
 
             return smashed_data
 
+    def give_data_for_round(self):
+        data_for_round = self.data.loc[self.round]
+        data_for_round = data_for_round.to_numpy()
+        data_for_round = data_for_round.astype(float)
+
+        self.round += 1
+
+        return data_for_round
+
     def forward_pass_multi_classification(self, number_of_classes):
         data_for_round = self.data.loc[self.round]
         data_for_round = data_for_round.to_numpy()

@@ -38,7 +38,8 @@ dataset_address_4 = './datasets/phishing.arff'
 run_dataset_1 = False
 run_dataset_2 = False
 run_dataset_2_new = False
-run_dataset_2_compare = True
+run_dataset_2_FE = True
+run_dataset_2_compare = False
 run_dataset_3 = False
 run_dataset_3_new = False
 run_dataset_3_compare = False
@@ -119,6 +120,46 @@ if __name__ == "__main__":
                                                      server_list=server_list, main_server=main_server, X_train=X_train,
                                                      y_train=y_train, X_test=X_test, y_test=y_test)
 
+    elif run_dataset_2_FE:
+        n_epochs = 35
+        dataset_name = 'heart'
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
+        party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
+                                                                  'binary-classification', 2, X_train, y_train)
+
+        start_HE = time.time()
+        train_loss_FE, test_loss_FE, train_accuracy_FE, test_accuracy_FE, input_shape1, size_of_HE_data_transfer = train_test.train_FE_binary_classification(
+            dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
+            server_list=server_list, main_server=main_server, X_train=X_train,
+            y_train=y_train, X_test=X_test, y_test=y_test)
+        end_HE = time.time()
+
+        party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
+                                                                  'binary-classification', 2, X_train, y_train)
+        start_FedMod = time.time()
+        train_loss_FedMod, test_loss_FedMod, train_accuracy_FedMod, test_accuracy_FedMod, input_shape2, size_of_FedMod_data_transfer = train_test.train_model_binary_classification(
+            dataset_name=dataset_name, n_epochs=n_epochs, party_list=party_list,
+            server_list=server_list, main_server=main_server, X_train=X_train,
+            y_train=y_train, X_test=X_test, y_test=y_test)
+        end_FedMod = time.time()
+
+        start_baseline = time.time()
+        baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss = train_test.train_mlp_binary_baseline(
+            n_epochs=n_epochs, X_train=X_train, y_train=y_train,
+            X_test=X_test, y_test=y_test, input_shape=input_shape1, output_shape=1,
+            dataset_name=dataset_name)
+        end_baseline = time.time()
+
+        create_graphs_classification([train_loss_FedMod, train_loss_FE, baseline_train_loss],
+                                     dataset_name=dataset_name, type_name='Train Loss')
+        create_graphs_classification([train_accuracy_FedMod, train_accuracy_FE, baseline_train_accuracy],
+                                     dataset_name=dataset_name, type_name='Train Accuracy')
+        create_graphs_classification([test_loss_FedMod, test_loss_FE, baseline_test_loss],
+                                     dataset_name=dataset_name, type_name='Loss')
+        create_graphs_classification([test_accuracy_FedMod, test_accuracy_FE, baseline_test_accuracy],
+                                     dataset_name=dataset_name, type_name='Accuracy')
+
+
     elif run_dataset_2_compare:
         n_epochs = 35
         dataset_name = 'heart'
@@ -196,7 +237,6 @@ if __name__ == "__main__":
                                      dataset_name=dataset_name, type_name='Loss')
         create_graphs_classification([test_accuracy_FedMod, test_accuracy_HE, baseline_test_accuracy],
                                      dataset_name=dataset_name, type_name='Accuracy')
-
 
     size_of_HE_data_transfer = size_of_HE_data_transfer / 1024
     size_of_FedMod_data_transfer = size_of_FedMod_data_transfer / 1024

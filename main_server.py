@@ -3,6 +3,7 @@ import pandas as pd
 import math
 
 import config
+import train_test
 
 k_value = config.k_value
 
@@ -102,6 +103,27 @@ class MainServer:
         noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
 
         a = sigmoid(noisy_sum)
+        self.error = a - label_for_round
+        self.correct = check_correct_binary(a, label_for_round)
+        self.round += 1
+
+        return self.error
+
+    def calculate_FE_loss(self, party_list, encrypted_data, encrypted_offsets):
+
+        intermediate_outputs = []
+        for i in range(len(party_list)):
+            intermediate_outputs.append(train_test.compute_inner_product(encrypted_data[i],
+                                                                         party_list[i].weights,
+                                                                         config.decryptor,
+                                                                         offset=encrypted_offsets[i]))
+
+        self.correct = None
+        label_for_round = get_label_for_round(self.labels, self.round)
+
+        sum_data = sum(intermediate_outputs)
+
+        a = sigmoid(sum_data)
         self.error = a - label_for_round
         self.correct = check_correct_binary(a, label_for_round)
         self.round += 1
