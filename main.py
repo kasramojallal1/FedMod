@@ -38,12 +38,13 @@ dataset_address_4 = './datasets/phishing.arff'
 run_dataset_1 = False
 run_dataset_2 = False
 run_dataset_2_new = False
-run_dataset_2_FE = True
+run_dataset_2_FE = False
 run_dataset_2_compare = False
 run_dataset_3 = False
 run_dataset_3_new = False
 run_dataset_3_compare = False
 run_dataset_4 = False
+new_data_2_compare = True
 
 
 def create_graphs_classification(history, dataset_name, type_name):
@@ -75,6 +76,138 @@ def create_graphs_classification(history, dataset_name, type_name):
         data=[trace1, trace2, trace3, trace1_markers, trace2_markers, trace3_markers],
         layout=layout)
     fig1.show()
+
+
+def get_sets_of_entities(n_sets):
+    party_sets = []
+    server_sets = []
+    main_server_sets = []
+
+    for i in range(n_sets):
+        party_list_n, server_list_n, main_server_n = nodes.create_nodes(config.n_parties, config.n_servers,
+                                                                        'binary-classification', 2, X_train, y_train)
+        party_sets.append(party_list_n)
+        server_sets.append(server_list_n)
+        main_server_sets.append(main_server_n)
+
+    return party_sets, server_sets, main_server_sets
+
+
+def draw_graphs(train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list, dataset_name):
+    create_graphs_classification([train_loss_list[0], train_loss_list[1], train_loss_list[2]],
+                                 dataset_name=dataset_name, type_name='Train Loss')
+    create_graphs_classification([train_accuracy_list[0], train_accuracy_list[1], train_accuracy_list[2]],
+                                 dataset_name=dataset_name, type_name='Train Accuracy')
+    create_graphs_classification([test_loss_list[0], test_loss_list[1], test_loss_list[2]],
+                                 dataset_name=dataset_name, type_name='Loss')
+    create_graphs_classification([test_accuracy_list[0], test_accuracy_list[1], test_accuracy_list[2]],
+                                 dataset_name=dataset_name, type_name='Accuracy')
+
+
+def print_results(name_list, accuracy_list, loss_list, time_list, size_transfer_list):
+    round_parameter = 3
+
+    last_accuracy_list = []
+    last_loss_list = []
+
+    for i in range(len(accuracy_list)):
+        last_accuracy_list.append(accuracy_list[i][-1])
+
+    for i in range(len(loss_list)):
+        last_loss_list.append(loss_list[i][-1])
+
+    for i in range(last_accuracy_list):
+        last_accuracy_list[i] = round(last_accuracy_list[i], round_parameter)
+
+    for i in range(last_loss_list):
+        last_loss_list[i] = round(last_loss_list[i], round_parameter)
+
+    for i in range(time_list):
+        time_list[i] = round(time_list[i], round_parameter)
+
+    for i in range(size_transfer_list):
+        size_transfer_list[i] = size_transfer_list[i] / 1024
+        size_transfer_list[i] = round(size_transfer_list[i], round_parameter)
+
+    print('--------------------------------------------')
+    for i in range(len(name_list)):
+        print(f'{name_list[i]} Accuracy: {last_accuracy_list[i]}')
+    print('--------------------------------------------')
+    for i in range(len(name_list)):
+        print(f'{name_list[i]} Loss: {last_loss_list[i]}')
+    print('--------------------------------------------')
+    for i in range(len(name_list)):
+        print(f'{name_list[i]} Time: {time_list[i]} sec')
+    print('--------------------------------------------')
+    for i in range(len(name_list)):
+        print(f'{name_list[i]} Data Transfer: {size_transfer_list[i]} KB')
+    print('--------------------------------------------')
+
+    print(f'Learning Rate: {config.learning_rate}')
+    print(f'Regularization Rate: {config.regularization_rate}')
+    print(f'K_value: {config.k_value}')
+    print(f'N# Parties: {config.n_parties}')
+    print(f'N# Servers: {config.n_servers}')
+    print('--------------------------------------------')
+
+
+def run_fedmod(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
+    start_time = time.time()
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer = train_test.train_model_binary_classification(
+        dataset_name=dataset_name, n_epochs=n_epochs,
+        party_list=party_set, server_list=server_set, main_server=main_server_set,
+        X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+    end_time = time.time()
+
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    extra_results = [input_shape, size_of_data_transfer]
+    time_taken = end_time - start_time
+
+    return algorithm_results, extra_results, time_taken
+
+
+def run_he(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
+    start_time = time.time()
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer = train_test.train_HE_binary_classification(
+        dataset_name=dataset_name, n_epochs=n_epochs,
+        party_list=party_set, server_list=server_set, main_server=main_server_set,
+        X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+    end_time = time.time()
+
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    extra_results = [input_shape, size_of_data_transfer]
+    time_taken = end_time - start_time
+
+    return algorithm_results, extra_results, time_taken
+
+
+def run_fe(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
+    start_time = time.time()
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer = train_test.train_FE_binary_classification(
+        dataset_name=dataset_name, n_epochs=n_epochs,
+        party_list=party_set, server_list=server_set, main_server=main_server_set,
+        X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+    end_time = time.time()
+
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    extra_results = [input_shape, size_of_data_transfer]
+    time_taken = end_time - start_time
+
+    return algorithm_results, extra_results, time_taken
+
+
+def run_baseline(X_train, X_test, y_train, y_test, input_shape, n_epochs, dataset_name):
+    start_time = time.time()
+    train_accuracy, test_accuracy, train_loss, test_loss = train_test.train_mlp_binary_baseline(
+        n_epochs=n_epochs, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
+        input_shape=input_shape, output_shape=1, dataset_name=dataset_name)
+    end_time = time.time()
+
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    extra_results = [0, 0]
+    time_taken = end_time - start_time
+
+    return algorithm_results, extra_results, time_taken
 
 
 if __name__ == "__main__":
@@ -238,29 +371,28 @@ if __name__ == "__main__":
         create_graphs_classification([test_accuracy_FedMod, test_accuracy_HE, baseline_test_accuracy],
                                      dataset_name=dataset_name, type_name='Accuracy')
 
-    size_of_HE_data_transfer = size_of_HE_data_transfer / 1024
-    size_of_FedMod_data_transfer = size_of_FedMod_data_transfer / 1024
+    elif new_data_2_compare:
+        n_epochs = 35
+        dataset_name = 'heart'
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
 
+        party_sets, server_sets, main_server_sets = get_sets_of_entities(n_sets=3)
 
-    #TODO
-    print('--------------------------------------------')
-    print(f"FedMod: {round((end_FedMod - start_FedMod), 3)} secs")
-    print(f"HE: {round((end_HE - start_HE), 3)} secs")
-    print(f"Baseline: {round((end_baseline - start_baseline), 3)} secs")
-    print('--------------------------------------------')
-    print(f'FedMod Accuracy: {round((test_accuracy_FedMod[-1]), 3)}')
-    print(f'{name_of_encryption} Accuracy: {round((test_accuracy_HE[-1]), 3)}')
-    print(f'Baseline Accuracy: {round((baseline_test_accuracy[-1]), 3)}')
-    print('--------------------------------------------')
-    print(f'Size of {name_of_encryption} Data Transfer: {round(size_of_HE_data_transfer, 3)} KB')
-    print(f'Size of FedMod Data Transfer: {round(size_of_FedMod_data_transfer, 3)} KB')
-    print('--------------------------------------------')
-    print(f'Learning Rate: {config.learning_rate}')
-    print(f'Regularization Rate: {config.regularization_rate}')
-    print(f'K_value: {config.k_value}')
-    print(f'N# Parties: {config.n_parties}')
-    print(f'N# Servers: {config.n_servers}')
-    # print(f'Poly Modulus Degree: {config.poly_mod_degree}')
-    # print(f'Coeff Mod Bit Sizes: {config.coeff_mod_bit_sizes}')
-    # print(f'Context Global Scale: {config.context.global_scale}')
-    print('--------------------------------------------')
+        fe_results, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
+                                               X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+
+        he_results, he_extra, he_time = run_he(party_sets[1], server_sets[1], main_server_sets[1],
+                                               X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+
+        fed_results, fed_extra, fed_time = run_fedmod(party_sets[2], server_sets[2], main_server_sets[2],
+                                                      X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+
+        baseline_results, baseline_extra, baseline_time = run_baseline(X_train, X_test, y_train, y_test,
+                                                                       fed_extra[0], n_epochs, dataset_name)
+
+        train_loss_list = [fe_results[0], fed_results[0], baseline_results[0]]
+        train_accuracy_list = [fe_results[1], fed_results[1], baseline_results[1]]
+        test_loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
+        test_accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
+
+        draw_graphs(train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list, dataset_name)
