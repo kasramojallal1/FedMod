@@ -24,15 +24,6 @@ from tensorflow.keras.utils import to_categorical
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
-name_of_encryption = None
-if config.type_HE:
-    name_of_encryption = 'Tenseal'
-elif config.type_paillier:
-    name_of_encryption = 'Paillier'
-elif config.type_DP:
-    name_of_encryption = 'DP'
-
-
 def encrypt_vector(vector, encryptor, scale_factor=1000000):
     """Encrypt a vector element-wise, scaling floats to integers."""
     # Assuming the largest negative value that we might deal with for proper offset
@@ -896,7 +887,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
         config.type_HE = True
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:{name_of_encryption}, Epoch:{epoch + 1}')
+        print(f'Dataset:{dataset_name}, Epoch:{epoch + 1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -1094,7 +1085,7 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
     test_loss_history = []
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:{name_of_encryption}, Epoch:{epoch + 1}')
+        print(f'Dataset:{dataset_name}, Epoch:{epoch + 1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
