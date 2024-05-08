@@ -43,6 +43,10 @@ class MainServer:
         self.multi_data = []
         self.error_multi = []
 
+        self.enc_round = 0
+        self.encrypted_data = []
+        self.offset_list = []
+
     def calculate_loss(self, problem):
 
         if problem == 'regression':
@@ -109,14 +113,21 @@ class MainServer:
 
         return self.error
 
-    def calculate_FE_loss(self, party_list, encrypted_data, encrypted_offsets):
+    def add_to_encrypted_data(self, encrypted_data, offset):
+        self.encrypted_data.append(encrypted_data)
+        self.offset_list.append(offset)
+
+    def reset_encrypted_round(self):
+        self.enc_round = 0
+
+    def calculate_FE_loss(self, party_list):
 
         intermediate_outputs = []
         for i in range(len(party_list)):
-            intermediate_outputs.append(train_test.compute_inner_product(encrypted_data[i],
+            intermediate_outputs.append(train_test.compute_inner_product(self.encrypted_data[self.enc_round][i],
                                                                          party_list[i].weights,
                                                                          config.decryptor,
-                                                                         offset=encrypted_offsets[i]))
+                                                                         offset=self.offset_list[self.enc_round][i]))
 
         self.correct = None
         label_for_round = get_label_for_round(self.labels, self.round)

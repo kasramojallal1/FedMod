@@ -1090,17 +1090,23 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
 
-            encrypted_data_list = []
-            offset_list = []
-            for i in range(len(party_list)):
-                # data_for_round = party_list[i].give_data_for_round()
-                # print(data_for_round)
-                encrypted_data, offset = encrypt_vector(party_list[i].give_data_for_round(), config.encryptor)
-                offset_list.append(offset)
-                encrypted_data_list.append(encrypted_data)
+            if epoch == 0:
+                encrypted_data_list = []
+                offset_list = []
+                for i in range(len(party_list)):
+                    encrypted_data, offset = encrypt_vector(party_list[i].give_data_for_round(), config.encryptor)
+                    offset_list.append(offset)
+                    encrypted_data_list.append(encrypted_data)
+
+                main_server.add_to_encrypted_data(encrypted_data_list, offset_list)
+
+            if epoch != 0:
+                for i in range(len(party_list)):
+                    party_list[i].give_data_for_round()
 
             main_server.reset()
-            main_server_error = main_server.calculate_FE_loss(party_list, encrypted_data_list, offset_list)
+            # main_server_error = main_server.calculate_FE_loss(party_list, encrypted_data_list, offset_list)
+            main_server_error = main_server.calculate_FE_loss(party_list)
 
             parties_get_error(party_list, main_server_error)
             parties_update_weights(party_list)
@@ -1126,6 +1132,7 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
 
         parties_reset(party_list)
         main_server.reset_round()
+        main_server.reset_encrypted_round()
 
     if dataset_name == 'ionosphere':
         new_df_y_train = pd.DataFrame()
