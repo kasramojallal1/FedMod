@@ -32,7 +32,7 @@ type_HE = False
 type_paillier = True
 type_DP = False
 
-key_FE = RSA.generate(1024)
+key_FE = RSA.generate(512)
 public_key_FE = key_FE.publickey()
 encryptor = PKCS1_OAEP.new(public_key_FE)
 decryptor = PKCS1_OAEP.new(key_FE)

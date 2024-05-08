@@ -1084,6 +1084,8 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
     test_accuracy_history = []
     test_loss_history = []
 
+    size_of_transfer_data = 0
+
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Epoch:{epoch + 1}')
         error_history = []
@@ -1100,6 +1102,12 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
 
                 main_server.add_to_encrypted_data(encrypted_data_list, offset_list)
 
+            if n_data == 0:
+                for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(encrypted_data_list[i])
+                    size_of_transfer_data += sys.getsizeof(offset_list[i])
+                    size_of_transfer_data += sys.getsizeof(party_list[i].weights)
+
             if epoch != 0:
                 for i in range(len(party_list)):
                     party_list[i].give_data_for_round()
@@ -1107,6 +1115,10 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
             main_server.reset()
             # main_server_error = main_server.calculate_FE_loss(party_list, encrypted_data_list, offset_list)
             main_server_error = main_server.calculate_FE_loss(party_list)
+
+            if n_data == 0:
+                for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(main_server_error)
 
             parties_get_error(party_list, main_server_error)
             parties_update_weights(party_list)
@@ -1144,9 +1156,6 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
     input_shape = 0
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
-
-    #TODO
-    size_of_transfer_data = 0
 
     return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
 
