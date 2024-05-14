@@ -39,10 +39,9 @@ dataset_2_comparison = True
 
 
 def create_graphs_classification(history, dataset_name, type_name, name_list, file_path):
+    file_path = file_path + f'-{type_name}.png'
 
-    file_path = file_path + '.png'
-
-    color_list = ['red', 'blue', 'purple', 'green', 'orange', 'yellow', 'black', 'brown', 'pink', 'cyan']
+    color_list = ['red', 'blue', 'purple', 'green', 'orange', 'yellow']
     trace_list = []
     for i in range(len(history)):
         trace_list.append(go.Scatter(y=history[i], mode='lines', name=f'{name_list[i]}',
@@ -76,27 +75,38 @@ def get_sets_of_entities(n_sets):
     return party_sets, server_sets, main_server_sets
 
 
-def draw_graphs(train_loss_list, train_accuracy_list, test_loss_list, test_accuracy_list, dataset_name, name_list, file_path):
-
+def draw_graphs(train_loss_list, train_accuracy_list,
+                test_loss_list, test_accuracy_list,
+                test_precision_list, test_recall_list,
+                dataset_name, name_list, file_path):
     train_losses = []
     train_accuracies = []
     test_losses = []
     test_accuracies = []
+    test_precisions = []
+    test_recalls = []
 
     for i in range(len(train_loss_list)):
         train_losses.append(train_loss_list[i])
         train_accuracies.append(train_accuracy_list[i])
         test_losses.append(test_loss_list[i])
         test_accuracies.append(test_accuracy_list[i])
+        test_precisions.append(test_precision_list[i])
+        test_recalls.append(test_recall_list[i])
 
     # create_graphs_classification(history=train_losses, dataset_name=dataset_name, type_name='Train Loss')
     # create_graphs_classification(history=train_accuracies, dataset_name=dataset_name, type_name='Train Accuracy')
     # create_graphs_classification(history=test_losses, dataset_name=dataset_name, type_name='Loss')
-    create_graphs_classification(history=test_accuracies, dataset_name=dataset_name, type_name='Accuracy', name_list=name_list, file_path=file_path)
+    create_graphs_classification(history=test_accuracies, dataset_name=dataset_name, type_name='Accuracy',
+                                 name_list=name_list, file_path=file_path)
+    create_graphs_classification(history=test_precisions, dataset_name=dataset_name, type_name='Precision',
+                                 name_list=name_list, file_path=file_path)
+    create_graphs_classification(history=test_recalls, dataset_name=dataset_name, type_name='Recall',
+                                 name_list=name_list, file_path=file_path)
 
 
-def print_results(name_list, accuracy_list, loss_list, time_list, size_transfer_list, file_path):
-
+def print_results(name_list, accuracy_list, loss_list, precision_list, recall_list, time_list, size_transfer_list,
+                  file_path):
     file_path = file_path + '.txt'
 
     round_parameter = 4
@@ -109,33 +119,25 @@ def print_results(name_list, accuracy_list, loss_list, time_list, size_transfer_
     for i in range(len(name_list)):
         last_losses.append(round(loss_list[i][-1], round_parameter))
 
+    last_precisions = []
+    for i in range(len(name_list)):
+        last_precisions.append(round(precision_list[i][-1], round_parameter))
+
+    last_recalls = []
+    for i in range(len(name_list)):
+        last_recalls.append(round(recall_list[i][-1], round_parameter))
+
+    last_f1s = []
+    for i in range(len(name_list)):
+        temp_f1 = 2 * (last_precisions[i] * last_recalls[i]) / ((last_precisions[i] + last_recalls[i]) + 1e-10)
+        last_f1s.append(round(temp_f1, round_parameter))
+
     for i in range(len(name_list)):
         time_list[i] = round(time_list[i], round_parameter)
 
     for i in range(len(name_list)):
         size_transfer_list[i] = size_transfer_list[i] / 1024
         size_transfer_list[i] = round(size_transfer_list[i], round_parameter)
-
-    print('--------------------------------------------')
-    for i in range(len(name_list)):
-        print(f'{name_list[i]} Accuracy: {last_accuracies[i]}')
-    print('--------------------------------------------')
-    for i in range(len(name_list)):
-        print(f'{name_list[i]} Loss: {last_losses[i]}')
-    print('--------------------------------------------')
-    for i in range(len(name_list)):
-        print(f'{name_list[i]} Time: {time_list[i]} secs')
-    print('--------------------------------------------')
-    for i in range(len(name_list)):
-        print(f'{name_list[i]} Data Transfer: {size_transfer_list[i]} KB')
-    print('--------------------------------------------')
-
-    print(f'Learning Rate: {config.learning_rate}')
-    print(f'Regularization Rate: {config.regularization_rate}')
-    print(f'K_value: {config.k_value}')
-    print(f'N# Parties: {config.n_parties}')
-    print(f'N# Servers: {config.n_servers}')
-    print('--------------------------------------------')
 
     with open(file_path, 'w') as file:
         file.write('--------------------------------------------\n')
@@ -146,12 +148,22 @@ def print_results(name_list, accuracy_list, loss_list, time_list, size_transfer_
             file.write(f'{name_list[i]} Loss: {last_losses[i]}\n')
         file.write('--------------------------------------------\n')
         for i in range(len(name_list)):
+            file.write(f'{name_list[i]} Precision: {last_precisions[i]}\n')
+        file.write('--------------------------------------------\n')
+        for i in range(len(name_list)):
+            file.write(f'{name_list[i]} Recall: {last_recalls[i]}\n')
+        file.write('--------------------------------------------\n')
+        for i in range(len(name_list)):
+            file.write(f'{name_list[i]} F1: {last_f1s[i]}\n')
+        file.write('--------------------------------------------\n')
+        for i in range(len(name_list)):
             file.write(f'{name_list[i]} Time: {time_list[i]} secs\n')
         file.write('--------------------------------------------\n')
         for i in range(len(name_list)):
             file.write(f'{name_list[i]} Data Transfer: {size_transfer_list[i]} KB\n')
         file.write('--------------------------------------------\n')
 
+        file.write(f'Dataset Name: {dataset_name}\n')
         file.write(f'Learning Rate: {config.learning_rate}\n')
         file.write(f'Regularization Rate: {config.regularization_rate}\n')
         file.write(f'K_value: {config.k_value}\n')
@@ -159,22 +171,21 @@ def print_results(name_list, accuracy_list, loss_list, time_list, size_transfer_
         file.write(f'N# Servers: {config.n_servers}\n')
         file.write('--------------------------------------------\n')
 
-    print(f'Results have been written to {file_path}')
-
 
 def run_fedmod(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
     start_time = time.time()
-    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer = train_test.train_model_binary_classification(
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer, test_precision, test_recall = train_test.train_model_binary_classification(
         dataset_name=dataset_name, n_epochs=n_epochs,
         party_list=party_set, server_list=server_set, main_server=main_server_set,
         X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
     end_time = time.time()
 
     algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    algorithm_scores = [test_precision, test_recall]
     extra_results = [input_shape, size_of_data_transfer]
     time_taken = end_time - start_time
 
-    return algorithm_results, extra_results, time_taken
+    return algorithm_results, algorithm_scores, extra_results, time_taken
 
 
 def run_he(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
@@ -194,31 +205,33 @@ def run_he(party_set, server_set, main_server_set, X_train, y_train, X_test, y_t
 
 def run_fe(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
     start_time = time.time()
-    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer = train_test.train_FE_binary_classification(
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer, test_precision, test_recall = train_test.train_FE_binary_classification(
         dataset_name=dataset_name, n_epochs=n_epochs,
         party_list=party_set, server_list=server_set, main_server=main_server_set,
         X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
     end_time = time.time()
 
     algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    algorithm_scores = [test_precision, test_recall]
     extra_results = [input_shape, size_of_data_transfer]
     time_taken = end_time - start_time
 
-    return algorithm_results, extra_results, time_taken
+    return algorithm_results, algorithm_scores, extra_results, time_taken
 
 
 def run_baseline(X_train, X_test, y_train, y_test, input_shape, n_epochs, dataset_name):
     start_time = time.time()
-    train_accuracy, test_accuracy, train_loss, test_loss = train_test.train_mlp_binary_baseline(
+    train_accuracy, test_accuracy, train_loss, test_loss, test_precision, test_recall = train_test.train_mlp_binary_baseline(
         n_epochs=n_epochs, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test,
         input_shape=input_shape, output_shape=1, dataset_name=dataset_name)
     end_time = time.time()
 
     algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
+    algorithm_scores = [test_precision, test_recall]
     extra_results = [0, 0]
     time_taken = end_time - start_time
 
-    return algorithm_results, extra_results, time_taken
+    return algorithm_results, algorithm_scores, extra_results, time_taken
 
 
 if __name__ == "__main__":
@@ -254,32 +267,37 @@ if __name__ == "__main__":
 
     elif dataset_2_comparison:
 
-        for i in range(2, 13):
-
+        for i in range(4, 13):
             config.n_parties = i
-
             n_epochs = 35
             dataset_name = 'heart'
             X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
 
             party_sets, server_sets, main_server_sets = get_sets_of_entities(n_sets=3)
 
-            fe_results, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
-                                                   X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+            fe_results, fe_scores, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
+                                                              X_train, y_train, X_test, y_test, n_epochs, dataset_name)
 
             # he_results, he_extra, he_time = run_he(party_sets[1], server_sets[1], main_server_sets[1],
             #                                        X_train, y_train, X_test, y_test, n_epochs, dataset_name)
 
-            fed_results, fed_extra, fed_time = run_fedmod(party_sets[2], server_sets[2], main_server_sets[2],
-                                                          X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+            fed_results, fed_scores, fed_extra, fed_time = run_fedmod(party_sets[2],
+                                                                      server_sets[2],
+                                                                      main_server_sets[2],
+                                                                      X_train, y_train, X_test, y_test,
+                                                                      n_epochs, dataset_name)
 
-            baseline_results, baseline_extra, baseline_time = run_baseline(X_train, X_test, y_train, y_test,
-                                                                           fed_extra[0], n_epochs, dataset_name)
+            baseline_results, baseline_scores, baseline_extra, baseline_time = run_baseline(X_train, X_test,
+                                                                                            y_train, y_test,
+                                                                                            fed_extra[0],
+                                                                                            n_epochs, dataset_name)
 
             train_loss_list = [fe_results[0], fed_results[0], baseline_results[0]]
             train_accuracy_list = [fe_results[1], fed_results[1], baseline_results[1]]
             test_loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
             test_accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
+            test_precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
+            test_recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
 
             name_list = ['FedV', 'FedMod', 'Baseline']
             file_write_path = f"results/p-{config.n_parties}"
@@ -287,11 +305,15 @@ if __name__ == "__main__":
                         train_accuracy_list,
                         test_loss_list,
                         test_accuracy_list,
+                        test_precision_list,
+                        test_recall_list,
                         dataset_name,
                         name_list,
                         file_write_path)
 
             accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
+            precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
+            recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
             loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
             time_list = [fe_time, fed_time, baseline_time]
             size_transfer_list = [fe_extra[1], fed_extra[1], 0]
@@ -299,6 +321,8 @@ if __name__ == "__main__":
             print_results(name_list,
                           accuracy_list,
                           loss_list,
+                          precision_list,
+                          recall_list,
                           time_list,
                           size_transfer_list,
                           file_path=file_write_path)

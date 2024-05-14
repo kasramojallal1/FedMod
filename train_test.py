@@ -19,10 +19,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 import tensorflow as tf
+from sklearn.metrics import precision_score, recall_score, f1_score
 from tensorflow.keras.utils import to_categorical
 
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
+
 
 def encrypt_vector(vector, encryptor, scale_factor=1000000):
     """Encrypt a vector element-wise, scaling floats to integers."""
@@ -152,8 +154,12 @@ def figure_for_classification(type_name, train_history, test_history, baseline_t
 def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name):
     baseline_train_accuracy = []
     baseline_test_accuracy = []
+
     baseline_train_loss = []
     baseline_test_loss = []
+
+    baseline_test_precision = []
+    baseline_test_recall = []
 
     if dataset_name == 'ionosphere':
         X_train = X_train.astype('float32')
@@ -183,10 +189,16 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
 
         test_loss, test_accuracy = model_tf.evaluate(X_test, y_test, verbose=0)
 
+        y_test_pred = (model_tf.predict(X_test) > 0.5).astype("int32")
+        test_precision = precision_score(y_test, y_test_pred)
+        test_recall = recall_score(y_test, y_test_pred)
+
         baseline_test_loss.append(test_loss)
         baseline_test_accuracy.append(test_accuracy)
+        baseline_test_precision.append(test_precision)
+        baseline_test_recall.append(test_recall)
 
-    return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss
+    return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss, baseline_test_precision, baseline_test_recall
 
 
 def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape):
@@ -737,8 +749,12 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
                                       X_test, y_test):
     train_accuracy_history = []
     train_loss_history = []
+
     test_accuracy_history = []
     test_loss_history = []
+
+    test_precision_history = []
+    test_recall_history = []
 
     size_of_transfer_data = 0
 
@@ -793,11 +809,15 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
             parties_coefs.append(party.weights)
             parties_biases.append(party.bias)
 
-        test_accuracy, test_loss = test_model_binary_classification(len(party_list), X_test, y_test, parties_coefs,
-                                                                    parties_biases, )
+        test_accuracy, test_loss, test_precision, test_recall = test_model_binary_classification(len(party_list),
+                                                                                                 X_test, y_test,
+                                                                                                 parties_coefs,
+                                                                                                 parties_biases, )
 
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
+        test_precision_history.append(test_precision)
+        test_recall_history.append(test_recall)
 
         parties_reset(party_list)
         main_server.reset_round()
@@ -813,13 +833,18 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
 
-    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data, test_precision_history, test_recall_history
 
 
 def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):
     n_features = X_test.shape[1]
     column_share = n_features // n_parties
     extra_columns = n_features % n_parties
+
+    true_positive = 0
+    true_negative = 0
+    false_positive = 0
+    false_negative = 0
 
     parties_data = []
     parties = []
@@ -865,10 +890,21 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
 
         count_test_data += 1
 
+        if a == 1 and label_for_test == 1:
+            true_positive += 1
+        elif a == 0 and label_for_test == 0:
+            true_negative += 1
+        elif a == 1 and label_for_test == 0:
+            false_positive += 1
+        elif a == 0 and label_for_test == 1:
+            false_negative += 1
+
     accuracy = count_correct / count_test_data
     loss = np.average(test_loss_list)
+    precision = true_positive / ((true_positive + false_positive) + 1e-10)
+    recall = true_positive / ((true_positive + false_negative) + 1e-10)
 
-    return accuracy, loss
+    return accuracy, loss, precision, recall
 
 
 def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
@@ -904,8 +940,6 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             if type_HE:
                 encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
             elif type_paillier:
-                # encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
-                # encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
                 for i in range(len(party_list)):
                     encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
             elif type_DP:
@@ -922,10 +956,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             elif type_paillier:
                 if n_data == 0:
                     for i in range(len(party_list)):
-                        # size_of_transfer_data += sys.getsizeof(encrypted_number1)
-                        # size_of_transfer_data += sys.getsizeof(encrypted_number2)
                         size_of_transfer_data += sys.getsizeof(encrypted_functional[i])
-                # main_server_error = main_server.calculate_paillier_loss([encrypted_number1, encrypted_number2])
                 main_server_error = main_server.calculate_paillier_loss(encrypted_functional)
             elif type_DP:
                 if n_data == 0:
@@ -934,10 +965,6 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
                 main_server_error = main_server.calculate_DP_loss(smashed_numbers, laplace_mech)
 
             parties_get_error(party_list, main_server_error)
-            # if n_data == 0:
-            #     error_enc = config.public_key.encrypt(main_server_error)
-            #     for i in range(len(party_list)):
-            #         size_of_transfer_data += sys.getsizeof(error_enc)
             if n_data == 0:
                 for i in range(len(party_list)):
                     size_of_transfer_data += sys.getsizeof(main_server_error)
@@ -1081,8 +1108,12 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                                    X_test, y_test):
     train_accuracy_history = []
     train_loss_history = []
+
     test_accuracy_history = []
     test_loss_history = []
+
+    test_precision_history = []
+    test_recall_history = []
 
     size_of_transfer_data = 0
 
@@ -1113,7 +1144,6 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                     party_list[i].give_data_for_round()
 
             main_server.reset()
-            # main_server_error = main_server.calculate_FE_loss(party_list, encrypted_data_list, offset_list)
             main_server_error = main_server.calculate_FE_loss(party_list)
 
             if n_data == 0:
@@ -1136,11 +1166,16 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
             parties_coefs.append(party.weights)
             parties_biases.append(party.bias)
 
-        test_accuracy, test_loss = test_FE_binary_classification(len(party_list), X_test, y_test,
-                                                                 parties_coefs, parties_biases, party_list)
+        test_accuracy, test_loss, test_precision, test_recall = test_FE_binary_classification(len(party_list),
+                                                                                              X_test, y_test,
+                                                                                              parties_coefs,
+                                                                                              parties_biases,
+                                                                                              party_list)
 
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
+        test_precision_history.append(test_precision)
+        test_recall_history.append(test_recall)
 
         parties_reset(party_list)
         main_server.reset_round()
@@ -1157,13 +1192,18 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
 
-    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data, test_precision_history, test_recall_history
 
 
 def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases, party_list):
     n_features = X_test.shape[1]
     column_share = n_features // n_parties
     extra_columns = n_features % n_parties
+
+    true_positive = 0
+    true_negative = 0
+    false_positive = 0
+    false_negative = 0
 
     parties_data = []
     parties = []
@@ -1221,7 +1261,18 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
 
         count_test_data += 1
 
+        if a == 1 and label_for_test == 1:
+            true_positive += 1
+        elif a == 0 and label_for_test == 0:
+            true_negative += 1
+        elif a == 1 and label_for_test == 0:
+            false_positive += 1
+        elif a == 0 and label_for_test == 1:
+            false_negative += 1
+
     accuracy = count_correct / count_test_data
     loss = np.average(test_loss_list)
+    precision = true_positive / ((true_positive + false_positive) + 1e-10)
+    recall = true_positive / ((true_positive + false_negative) + 1e-10)
 
-    return accuracy, loss
+    return accuracy, loss, precision, recall
