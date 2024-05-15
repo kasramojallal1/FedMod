@@ -7,7 +7,7 @@ from Crypto.Cipher import PKCS1_OAEP
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
 
-learning_rate = 0.001
+learning_rate = 0.01
 regularization_rate = 0.001
 
 plot_intervals = 60

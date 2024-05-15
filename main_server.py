@@ -133,8 +133,8 @@ class MainServer:
         label_for_round = get_label_for_round(self.labels, self.round)
 
         sum_data = sum(intermediate_outputs)
-
         a = sigmoid(sum_data)
+
         self.error = a - label_for_round
         self.correct = check_correct_binary(a, label_for_round)
         self.round += 1

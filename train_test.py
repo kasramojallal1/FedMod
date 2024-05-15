@@ -21,6 +21,8 @@ import plotly.graph_objects as go
 import tensorflow as tf
 from sklearn.metrics import precision_score, recall_score, f1_score
 from tensorflow.keras.utils import to_categorical
+from sklearn.metrics import accuracy_score
+from tensorflow.keras.losses import BinaryCrossentropy
 
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -161,6 +163,8 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
     baseline_test_precision = []
     baseline_test_recall = []
 
+    bce = BinaryCrossentropy()
+
     if dataset_name == 'ionosphere':
         X_train = X_train.astype('float32')
         y_train = y_train.astype('float32')
@@ -182,14 +186,16 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
         print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
         history = model_tf.fit(X_train, y_train, epochs=1, batch_size=1, verbose=0)
 
-        train_loss = history.history['loss'][0]
-        train_accuracy = history.history['accuracy'][0]
-        baseline_train_loss.append(train_loss)
-        baseline_train_accuracy.append(train_accuracy)
+        # train_loss = history.history['loss'][0]
+        # train_accuracy = history.history['accuracy'][0]
+        # baseline_train_loss.append(train_loss)
+        # baseline_train_accuracy.append(train_accuracy)
 
-        test_loss, test_accuracy = model_tf.evaluate(X_test, y_test, verbose=0)
+        # test_loss, test_accuracy = model_tf.evaluate(X_test, y_test, verbose=0)
 
         y_test_pred = (model_tf.predict(X_test) > 0.5).astype("int32")
+        test_accuracy = accuracy_score(y_test, y_test_pred)
+        test_loss = bce(y_test, y_test_pred).numpy()
         test_precision = precision_score(y_test, y_test_pred)
         test_recall = recall_score(y_test, y_test_pred)
 
@@ -1133,11 +1139,6 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
 
                 main_server.add_to_encrypted_data(encrypted_data_list, offset_list)
 
-            if n_data == 0:
-                for i in range(len(party_list)):
-                    size_of_transfer_data += sys.getsizeof(encrypted_data_list[i])
-                    size_of_transfer_data += sys.getsizeof(offset_list[i])
-                    size_of_transfer_data += sys.getsizeof(party_list[i].weights)
 
             if epoch != 0:
                 for i in range(len(party_list)):
@@ -1148,6 +1149,10 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
 
             if n_data == 0:
                 for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(encrypted_data_list[i])
+                    size_of_transfer_data += sys.getsizeof(offset_list[i])
+                    size_of_transfer_data += sys.getsizeof(party_list[i].weights)
+
                     size_of_transfer_data += sys.getsizeof(main_server_error)
 
             parties_get_error(party_list, main_server_error)
