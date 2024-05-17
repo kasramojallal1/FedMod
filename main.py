@@ -25,18 +25,13 @@ random.seed(45)
 dataset_address_1 = './datasets/boston_housing.csv'
 dataset_address_2 = './datasets/heart.csv'
 dataset_address_4 = './datasets/phishing.arff'
+dataset_address_5 = './datasets/parkinson.arff'
 
-run_dataset_1 = False
-run_dataset_2 = False
-run_dataset_2_new = False
-run_dataset_2_FE = False
-run_dataset_2_compare = False
-run_dataset_3 = False
-run_dataset_3_new = False
-run_dataset_3_compare = False
-run_dataset_4 = False
-dataset_2_comparison = False
-dataset_3_comparison = True
+dataset_1 = False
+dataset_2 = False
+dataset_3 = False
+dataset_4 = False
+dataset_5 = True
 
 
 def create_graphs_classification(history, dataset_name, type_name, name_list, file_path):
@@ -236,168 +231,83 @@ def run_baseline(X_train, X_test, y_train, y_test, input_shape, n_epochs, datase
 
 
 if __name__ == "__main__":
-    if run_dataset_1:
-        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_1(dataset_address_1)
-        party1, party2, server1, server2, main_server1 = nodes.create_nodes_1(X_train, y_train)
-        train_test.train_parties_1(10, [party1, party2], [server1, server2], main_server1, X_test, y_test)
 
-    elif run_dataset_4:
-        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_4(dataset_address_4)
-        party1, party2, server1, server2, main_server1 = nodes.create_nodes_4(X_train, y_train, 2,
-                                                                              'multi-classification',
-                                                                              number_of_classes=3)
-        run_time, cpu_usage, memory_usage = train_test.train_parties_4(50, [party1, party2], [server1, server2],
-                                                                       main_server1, X_train, y_train, X_test, y_test,
-                                                                       n_classes=3)
-
-    elif run_dataset_2_new:
-        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
-        party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
-                                                                  'binary-classification', 2, X_train, y_train)
-        train_test.train_model_binary_classification(dataset_name='heart', n_epochs=40, party_list=party_list,
-                                                     server_list=server_list, main_server=main_server, X_train=X_train,
-                                                     y_train=y_train, X_test=X_test, y_test=y_test)
-
-    elif run_dataset_3_new:
-        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
-        party_list, server_list, main_server = nodes.create_nodes(config.n_parties, config.n_servers,
-                                                                  'binary-classification', 2, X_train, y_train)
-        train_test.train_model_binary_classification(dataset_name='ionosphere', n_epochs=360, party_list=party_list,
-                                                     server_list=server_list, main_server=main_server, X_train=X_train,
-                                                     y_train=y_train, X_test=X_test, y_test=y_test)
-
-    elif dataset_2_comparison:
-
+    if dataset_2:
         config.learning_rate = 0.001
+        n_epochs = 35
+        dataset_name = 'heart'
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
 
-        for i in range(2, 13):
-            config.n_parties = i
-            n_epochs = 35
-            dataset_name = 'heart'
-            X_train, X_test, y_train, y_test = preprocess.setup_dataframe_2(dataset_address_2)
-
-            party_sets, server_sets, main_server_sets = get_sets_of_entities(n_sets=3)
-
-            fe_results, fe_scores, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
-                                                              X_train, y_train, X_test, y_test, n_epochs, dataset_name)
-
-            # he_results, he_extra, he_time = run_he(party_sets[1], server_sets[1], main_server_sets[1],
-            #                                        X_train, y_train, X_test, y_test, n_epochs, dataset_name)
-
-            fed_results, fed_scores, fed_extra, fed_time = run_fedmod(party_sets[2],
-                                                                      server_sets[2],
-                                                                      main_server_sets[2],
-                                                                      X_train, y_train, X_test, y_test,
-                                                                      n_epochs, dataset_name)
-
-            baseline_results, baseline_scores, baseline_extra, baseline_time = run_baseline(X_train, X_test,
-                                                                                            y_train, y_test,
-                                                                                            fed_extra[0],
-                                                                                            n_epochs, dataset_name)
-
-            train_loss_list = [fe_results[0], fed_results[0], baseline_results[0]]
-            train_accuracy_list = [fe_results[1], fed_results[1], baseline_results[1]]
-            test_loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
-            test_accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
-            test_precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
-            test_recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
-
-            name_list = ['FedV', 'FedMod', 'Baseline']
-            file_write_path_figures = f"results/{dataset_name}/figure-p{config.n_parties}"
-            file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}"
-            draw_graphs(train_loss_list,
-                        train_accuracy_list,
-                        test_loss_list,
-                        test_accuracy_list,
-                        test_precision_list,
-                        test_recall_list,
-                        dataset_name,
-                        name_list,
-                        file_write_path_figures)
-
-            accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
-            precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
-            recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
-            loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
-            time_list = [fe_time, fed_time, baseline_time]
-            size_transfer_list = [fe_extra[1], fed_extra[1], 0]
-
-            print_results(name_list,
-                          accuracy_list,
-                          loss_list,
-                          precision_list,
-                          recall_list,
-                          time_list,
-                          size_transfer_list,
-                          file_path=file_write_path_texts)
-
-    elif dataset_3_comparison:
-
+    elif dataset_3:
         config.learning_rate = 0.01
+        n_epochs = 360
+        dataset_name = 'ionosphere'
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
 
-        for i in range(2, 13):
-            config.n_parties = i
-            n_epochs = 360
-            dataset_name = 'ionosphere'
-            X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
+    elif dataset_5:
+        config.learning_rate = 0.001
+        n_epochs = 150
+        dataset_name = 'parkinson'
+        X_train, X_test, y_train, y_test = preprocess.setup_dataframe_5(dataset_address_5)
 
-            party_sets, server_sets, main_server_sets = get_sets_of_entities(n_sets=3)
+    for i in range(2, 3):
+        config.n_parties = i
+        party_sets, server_sets, main_server_sets = get_sets_of_entities(n_sets=3)
 
-            fe_results, fe_scores, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
-                                                              X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+        # fe_results, fe_scores, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
+        #                                                   X_train, y_train, X_test, y_test, n_epochs, dataset_name)
 
-            # he_results, he_extra, he_time = run_he(party_sets[1], server_sets[1], main_server_sets[1],
-            #                                        X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+        # he_results, he_extra, he_time = run_he(party_sets[1], server_sets[1], main_server_sets[1],
+        #                                        X_train, y_train, X_test, y_test, n_epochs, dataset_name)
 
-            fed_results, fed_scores, fed_extra, fed_time = run_fedmod(party_sets[2],
-                                                                      server_sets[2],
-                                                                      main_server_sets[2],
-                                                                      X_train, y_train, X_test, y_test,
-                                                                      n_epochs, dataset_name)
+        fed_results, fed_scores, fed_extra, fed_time = run_fedmod(party_sets[2],
+                                                                  server_sets[2],
+                                                                  main_server_sets[2],
+                                                                  X_train, y_train, X_test, y_test,
+                                                                  n_epochs, dataset_name)
 
-            baseline_results, baseline_scores, baseline_extra, baseline_time = run_baseline(X_train, X_test,
-                                                                                            y_train, y_test,
-                                                                                            fed_extra[0],
-                                                                                            n_epochs, dataset_name)
+        baseline_results, baseline_scores, baseline_extra, baseline_time = run_baseline(X_train, X_test,
+                                                                                        y_train, y_test,
+                                                                                        fed_extra[0],
+                                                                                        n_epochs, dataset_name)
 
-            # fe_results = fed_results
-            # fe_scores = fed_scores
-            # fe_extra = fed_extra
-            # fe_time = fed_time
+        fe_results = fed_results
+        fe_scores = fed_scores
+        fe_extra = fed_extra
+        fe_time = fed_time
 
+        train_loss_list = [fe_results[0], fed_results[0], baseline_results[0]]
+        train_accuracy_list = [fe_results[1], fed_results[1], baseline_results[1]]
+        test_loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
+        test_accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
+        test_precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
+        test_recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
 
-            train_loss_list = [fe_results[0], fed_results[0], baseline_results[0]]
-            train_accuracy_list = [fe_results[1], fed_results[1], baseline_results[1]]
-            test_loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
-            test_accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
-            test_precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
-            test_recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
+        name_list = ['FedV', 'FedMod', 'Baseline']
+        file_write_path_figures = f"results/{dataset_name}/figure-p{config.n_parties}"
+        file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}"
+        draw_graphs(train_loss_list,
+                    train_accuracy_list,
+                    test_loss_list,
+                    test_accuracy_list,
+                    test_precision_list,
+                    test_recall_list,
+                    dataset_name,
+                    name_list,
+                    file_write_path_figures)
 
-            name_list = ['FedV', 'FedMod', 'Baseline']
-            file_write_path_figures = f"results/{dataset_name}/figure-p{config.n_parties}"
-            file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}"
-            draw_graphs(train_loss_list,
-                        train_accuracy_list,
-                        test_loss_list,
-                        test_accuracy_list,
-                        test_precision_list,
-                        test_recall_list,
-                        dataset_name,
-                        name_list,
-                        file_write_path_figures)
+        accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
+        precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
+        recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
+        loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
+        time_list = [fe_time, fed_time, baseline_time]
+        size_transfer_list = [fe_extra[1], fed_extra[1], 0]
 
-            accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
-            precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
-            recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
-            loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
-            time_list = [fe_time, fed_time, baseline_time]
-            size_transfer_list = [fe_extra[1], fed_extra[1], 0]
-
-            print_results(name_list,
-                          accuracy_list,
-                          loss_list,
-                          precision_list,
-                          recall_list,
-                          time_list,
-                          size_transfer_list,
-                          file_path=file_write_path_texts)
+        print_results(name_list,
+                      accuracy_list,
+                      loss_list,
+                      precision_list,
+                      recall_list,
+                      time_list,
+                      size_transfer_list,
+                      file_path=file_write_path_texts)

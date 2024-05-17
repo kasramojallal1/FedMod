@@ -126,7 +126,7 @@ class MainServer:
         for i in range(len(party_list)):
             intermediate_outputs.append(train_test.compute_inner_product(self.encrypted_data[self.enc_round][i],
                                                                          party_list[i].weights,
-                                                                         config.decryptor,
+                                                                         config.shared_key,
                                                                          offset=self.offset_list[self.enc_round][i]))
 
         self.correct = None

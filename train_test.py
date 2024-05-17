@@ -27,20 +27,61 @@ from tensorflow.keras.losses import BinaryCrossentropy
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
 
-def encrypt_vector(vector, encryptor, scale_factor=1000000):
-    """Encrypt a vector element-wise, scaling floats to integers."""
-    # Assuming the largest negative value that we might deal with for proper offset
+
+# def encrypt_vector(vector, encryptor, scale_factor=1000000):
+#     """Encrypt a vector element-wise, scaling floats to integers."""
+#     # Assuming the largest negative value that we might deal with for proper offset
+#     offset = min(0, min(vector)) * scale_factor
+#     scaled_vector = [int((v - offset) * scale_factor) for v in vector]
+#     encrypted_vector = [encryptor.encrypt(v.to_bytes((v.bit_length() + 7) // 8, byteorder='big', signed=False)) for v in
+#                         scaled_vector]
+#     return encrypted_vector, offset
+#
+#
+# def compute_inner_product(encrypted_vector, weights, decryptor, scale_factor=1000000, offset=0):
+#     """Decrypt and compute the inner product, scaling back to floats and adjusting for offset."""
+#     decrypted_vector = [int.from_bytes(decryptor.decrypt(v), byteorder='big', signed=False) for v in encrypted_vector]
+#     adjusted_vector = [(v / scale_factor) + offset for v in decrypted_vector]
+#     return np.dot(adjusted_vector, weights)
+
+
+
+
+def encrypt_vector(vector, shared_key, scale_factor=1000000):
+    """Encrypt a vector element-wise using AES, scaling floats to integers."""
     offset = min(0, min(vector)) * scale_factor
     scaled_vector = [int((v - offset) * scale_factor) for v in vector]
-    encrypted_vector = [encryptor.encrypt(v.to_bytes((v.bit_length() + 7) // 8, byteorder='big', signed=False)) for v in
-                        scaled_vector]
+    encrypted_vector = []
+
+    for v in scaled_vector:
+        iv = os.urandom(16)  # Generate a random IV
+        cipher = Cipher(algorithms.AES(shared_key), modes.CFB(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        ct = encryptor.update(
+            v.to_bytes((v.bit_length() + 7) // 8, byteorder='big', signed=False)) + encryptor.finalize()
+        encrypted_vector.append((iv, ct))
+
     return encrypted_vector, offset
 
 
-def compute_inner_product(encrypted_vector, weights, decryptor, scale_factor=1000000, offset=0):
-    """Decrypt and compute the inner product, scaling back to floats and adjusting for offset."""
-    decrypted_vector = [int.from_bytes(decryptor.decrypt(v), byteorder='big', signed=False) for v in encrypted_vector]
+def compute_inner_product(encrypted_vector, weights, shared_key, scale_factor=1000000, offset=0):
+    """Decrypt and compute the inner product using AES, scaling back to floats and adjusting for offset."""
+    decrypted_vector = []
+
+    for iv, ct in encrypted_vector:
+        cipher = Cipher(algorithms.AES(shared_key), modes.CFB(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        pt = decryptor.update(ct) + decryptor.finalize()
+        v = int.from_bytes(pt, byteorder='big', signed=False)
+        decrypted_vector.append(v)
+
     adjusted_vector = [(v / scale_factor) + offset for v in decrypted_vector]
     return np.dot(adjusted_vector, weights)
 
@@ -177,7 +218,7 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
     ])
     optimizer = tf.keras.optimizers.SGD(learning_rate=config.learning_rate)
 
-    if dataset_name == 'ionosphere':
+    if dataset_name == 'ionosphere' or dataset_name == 'parkinson':
         model_tf.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
     else:
         model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
@@ -1133,7 +1174,7 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                 encrypted_data_list = []
                 offset_list = []
                 for i in range(len(party_list)):
-                    encrypted_data, offset = encrypt_vector(party_list[i].give_data_for_round(), config.encryptor)
+                    encrypted_data, offset = encrypt_vector(party_list[i].give_data_for_round(), config.shared_key)
                     offset_list.append(offset)
                     encrypted_data_list.append(encrypted_data)
 
@@ -1236,7 +1277,7 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         encrypted_data_list = []
         offset_list = []
         for i in range(len(party_list)):
-            encrypted_data, offset = encrypt_vector(parties[i].give_data_for_round(), config.encryptor)
+            encrypted_data, offset = encrypt_vector(parties[i].give_data_for_round(), config.shared_key)
             offset_list.append(offset)
             encrypted_data_list.append(encrypted_data)
 
@@ -1244,7 +1285,7 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         for i in range(len(party_list)):
             intermediate_outputs.append(compute_inner_product(encrypted_data_list[i],
                                                               party_list[i].weights,
-                                                              config.decryptor,
+                                                              config.shared_key,
                                                               offset=offset_list[i]))
 
         label_for_test = y_test.loc[count_test_data]

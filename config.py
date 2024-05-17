@@ -4,8 +4,26 @@ import tenseal as ts
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
+
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
+
+def derive_shared_key(private_key, public_key):
+    shared_key = private_key.exchange(ec.ECDH(), public_key)
+    derived_key = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b'handshake data',
+        backend=default_backend()
+    ).derive(shared_key)
+    return derived_key
 
 learning_rate = 0.01
 regularization_rate = 0.001
@@ -25,14 +43,18 @@ context = ts.context(ts.SCHEME_TYPE.CKKS,
 context.global_scale = global_scale = 2 ** 10
 context.generate_galois_keys()
 
-key_size = 256
-public_key, private_key = paillier.generate_paillier_keypair(n_length=key_size)
+# key_size = 256
+# public_key, private_key = paillier.generate_paillier_keypair(n_length=key_size)
 
 type_HE = False
 type_paillier = True
 type_DP = False
 
-key_FE = RSA.generate(512)
-public_key_FE = key_FE.publickey()
-encryptor = PKCS1_OAEP.new(public_key_FE)
-decryptor = PKCS1_OAEP.new(key_FE)
+# key_FE = RSA.generate(512)
+# public_key_FE = key_FE.publickey()
+# encryptor = PKCS1_OAEP.new(public_key_FE)
+# decryptor = PKCS1_OAEP.new(key_FE)
+
+private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+public_key = private_key.public_key()
+shared_key = derive_shared_key(private_key, public_key)
