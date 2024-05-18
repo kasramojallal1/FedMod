@@ -9,6 +9,7 @@ import sympy
 import secrets
 import resource
 import sys
+import os
 
 import tenseal as ts
 from phe import paillier
@@ -32,26 +33,6 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-import os
-
-
-# def encrypt_vector(vector, encryptor, scale_factor=1000000):
-#     """Encrypt a vector element-wise, scaling floats to integers."""
-#     # Assuming the largest negative value that we might deal with for proper offset
-#     offset = min(0, min(vector)) * scale_factor
-#     scaled_vector = [int((v - offset) * scale_factor) for v in vector]
-#     encrypted_vector = [encryptor.encrypt(v.to_bytes((v.bit_length() + 7) // 8, byteorder='big', signed=False)) for v in
-#                         scaled_vector]
-#     return encrypted_vector, offset
-#
-#
-# def compute_inner_product(encrypted_vector, weights, decryptor, scale_factor=1000000, offset=0):
-#     """Decrypt and compute the inner product, scaling back to floats and adjusting for offset."""
-#     decrypted_vector = [int.from_bytes(decryptor.decrypt(v), byteorder='big', signed=False) for v in encrypted_vector]
-#     adjusted_vector = [(v / scale_factor) + offset for v in decrypted_vector]
-#     return np.dot(adjusted_vector, weights)
-
-
 
 
 def encrypt_vector(vector, shared_key, scale_factor=1000000):
@@ -248,7 +229,7 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
     return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss, baseline_test_precision, baseline_test_recall
 
 
-def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape):
+def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name, n_classes):
     baseline_train_accuracy = []
     baseline_test_accuracy = []
     baseline_train_loss = []
@@ -257,8 +238,8 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
     y_train_adjusted = y_train - 1
     y_test_adjusted = y_test - 1
 
-    y_train_encoded = to_categorical(y_train_adjusted, num_classes=3)
-    y_test_encoded = to_categorical(y_test_adjusted, num_classes=3)
+    y_train_encoded = to_categorical(y_train_adjusted, num_classes=n_classes)
+    y_test_encoded = to_categorical(y_test_adjusted, num_classes=n_classes)
 
     model_tf = tf.keras.Sequential([
         tf.keras.layers.Dense(output_shape, activation='softmax', input_shape=(input_shape,),
@@ -270,7 +251,7 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
     # model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
 
     for epoch in range(n_epochs):
-        print('Epoch:', epoch + 1)
+        print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
         history = model_tf.fit(X_train, y_train_encoded, epochs=1, batch_size=3, verbose=0)
 
         train_loss = history.history['loss'][0]
@@ -280,10 +261,12 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
 
         test_loss, test_accuracy = model_tf.evaluate(X_test, y_test_encoded, verbose=0)
 
+        print(test_accuracy)
+
         baseline_test_loss.append(test_loss)
         baseline_test_accuracy.append(test_accuracy)
 
-    return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss
+    return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss, None, None
 
 
 def train_parties_1(n_epochs, party_list, server_list, main_server, X_test, y_test):
@@ -792,6 +775,164 @@ def test_parties_4(X_test, y_test, party_coefs, party_biases, n_parties, n_class
     return accuracy, loss
 
 
+def train_model_multi_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
+                                     X_test, y_test, n_classes):
+    train_accuracy_history = []
+    train_loss_history = []
+
+    test_accuracy_history = []
+    test_loss_history = []
+
+    test_precision_history = []
+    test_recall_history = []
+
+    size_of_transfer_data = 0
+
+    for epoch in range(n_epochs):
+        print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch + 1}')
+        error_history = []
+        correct_count = 0
+        for n_data in range(party_list[0].data.shape[0]):
+
+            smashed_list = []
+            for i in range(len(party_list)):
+                smashed_list.append(party_list[i].forward_pass_multi_classification(n_classes))
+
+            # print(len(smashed_list))
+            # print(len(smashed_list[0]))
+
+            party_shares = []
+            for i in range(len(party_list)):
+                party_m_shares = []
+                for j in range(n_classes):
+                    party_m_shares.append(
+                        party_list[i].create_shares(smashed_list[i][j], config.k_value, config.random_coef))
+                party_shares.append(party_m_shares)
+
+            # print(len(party_shares))
+            # print(len(party_shares[0]))
+
+            reset_servers(server_list)
+            main_server.reset()
+
+            for i in range(n_classes):
+                servers_get_from_clients(server_list=server_list, party_shares=[party_shares[0][i], party_shares[1][i]])
+                sumed_data = servers_sum_data(server_list=server_list)
+                main_server.get_multi_data(sumed_data)
+
+            main_server.calculate_multi_loss(n_classes)
+
+            for i in range(len(party_list)):
+                party_list[i].update_weights_multi(main_server.error_multi, n_classes)
+
+            temp_error = 0
+            for i in range(n_classes):
+                temp_error += abs(main_server.error_multi[i]) / n_classes
+            error_history.append(temp_error)
+
+            if main_server.correct == 1:
+                correct_count += 1
+
+        train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
+        train_loss_history.append(np.average(error_history))
+
+        parties_coefs = []
+        parties_biases = []
+        for party in party_list:
+            parties_coefs.append(party.weights)
+            parties_biases.append(party.bias)
+
+        test_accuracy, test_loss, test_precision, test_recall = test_model_multi_classification(n_parties=len(party_list),
+                                                                                                X_test=X_test, y_test=y_test,
+                                                                                                party_coefs=parties_coefs,
+                                                                                                party_biases=parties_biases,
+                                                                                                n_classes=n_classes)
+
+        test_loss_history.append(test_loss)
+        test_accuracy_history.append(test_accuracy)
+
+        parties_reset(party_list)
+        main_server.reset_round()
+
+        # print(train_accuracy_history[-1])
+
+    for i in range(len(train_accuracy_history)):
+        test_precision_history.append(0)
+        test_recall_history.append(0)
+
+    input_shape = 0
+    for i in range(len(party_list)):
+        input_shape += len(party_list[i].weights[0])
+
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data, test_precision_history, test_recall_history
+
+
+def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, party_biases, n_classes):
+    n_features = X_test.shape[1]
+    column_share = n_features // n_parties
+    extra_columns = n_features % n_parties
+
+    true_positive = 0
+    true_negative = 0
+    false_positive = 0
+    false_negative = 0
+
+    parties_data = []
+    parties = []
+
+    for i in range(n_parties):
+        if i == n_parties - 1:
+            data_party = X_test.iloc[:, i * column_share:]
+        else:
+            data_party = X_test.iloc[:, i * column_share:(i + 1) * column_share]
+        parties_data.append(data_party)
+
+    for i in range(n_parties):
+        parties.append(client.Client(name=f'party_test{i + 1}',
+                                     weights=party_coefs[i],
+                                     bias=party_biases[i],
+                                     data=parties_data[i],
+                                     lead=0))
+
+    count_test_data = 0
+    count_correct = 0
+    test_loss_list = []
+
+    for n_data in range(len(parties[0].data)):
+
+        smashed_list = []
+        for i in range(len(parties)):
+            smashed_list.append(parties[i].forward_pass_multi_classification(n_classes))
+
+        label_for_test = y_test.loc[count_test_data]
+        label_for_test = label_for_test.to_numpy()
+        label_for_test = label_for_test[0]
+
+        sigmoid_results = []
+        for i in range(n_classes):
+            sigmoid_results.append(sigmoid(sum(smashed_list[0][i], smashed_list[1][i])))
+
+        predict = np.argmax(sigmoid_results) + 1
+
+        loss_multi = []
+        for i in range(1, n_classes + 1):
+            if i == label_for_test:
+                loss_multi.append(abs(sigmoid_results[i - 1] - 1))
+            else:
+                loss_multi.append(abs(sigmoid_results[i - 1] - 0))
+        test_loss_list.append(sum(loss_multi) / 3)
+
+        if predict == label_for_test:
+            count_correct += 1
+
+        count_test_data += 1
+
+    accuracy = count_correct / count_test_data
+    loss = np.average(test_loss_list)
+
+    return accuracy, loss, 0, 0
+
+
 def train_model_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
                                       X_test, y_test):
     train_accuracy_history = []
@@ -1179,7 +1320,6 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                     encrypted_data_list.append(encrypted_data)
 
                 main_server.add_to_encrypted_data(encrypted_data_list, offset_list)
-
 
             if epoch != 0:
                 for i in range(len(party_list)):
