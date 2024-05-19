@@ -14,6 +14,7 @@ import os
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
 
+
 def derive_shared_key(private_key, public_key):
     shared_key = private_key.exchange(ec.ECDH(), public_key)
     derived_key = HKDF(
@@ -24,6 +25,7 @@ def derive_shared_key(private_key, public_key):
         backend=default_backend()
     ).derive(shared_key)
     return derived_key
+
 
 learning_rate = 0.01
 regularization_rate = 0.001

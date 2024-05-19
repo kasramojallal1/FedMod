@@ -20,10 +20,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 import tensorflow as tf
-from sklearn.metrics import precision_score, recall_score, f1_score
 from tensorflow.keras.utils import to_categorical
-from sklearn.metrics import accuracy_score
 from tensorflow.keras.losses import BinaryCrossentropy
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score, recall_score
 
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -180,8 +180,12 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
 def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name, n_classes):
     baseline_train_accuracy = []
     baseline_test_accuracy = []
+
     baseline_train_loss = []
     baseline_test_loss = []
+
+    baseline_test_precision = []
+    baseline_test_recall = []
 
     y_train_adjusted = y_train - 1
     y_test_adjusted = y_test - 1
@@ -195,26 +199,29 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
     ])
     optimizer = tf.keras.optimizers.SGD(learning_rate=config.learning_rate)
     loss = tf.keras.losses.CategoricalCrossentropy()
-    model_tf.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
-    # model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
+    metrics = ['accuracy',
+        tf.keras.metrics.Precision(name='precision'),
+        tf.keras.metrics.Recall(name='recall')
+    ]
+    model_tf.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
-        history = model_tf.fit(X_train, y_train_encoded, epochs=1, batch_size=3, verbose=0)
+        history = model_tf.fit(X_train, y_train_encoded, epochs=1, batch_size=1, verbose=0)
 
         train_loss = history.history['loss'][0]
         train_accuracy = history.history['accuracy'][0]
         baseline_train_loss.append(train_loss)
         baseline_train_accuracy.append(train_accuracy)
 
-        test_loss, test_accuracy = model_tf.evaluate(X_test, y_test_encoded, verbose=0)
-
-        print(test_accuracy)
+        test_loss, test_accuracy, test_precision, test_recall = model_tf.evaluate(X_test, y_test_encoded, verbose=0)
 
         baseline_test_loss.append(test_loss)
         baseline_test_accuracy.append(test_accuracy)
+        baseline_test_precision.append(test_precision)
+        baseline_test_recall.append(test_recall)
 
-    return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss, None, None
+    return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss, baseline_test_precision, baseline_test_recall
 
 
 def train_model_multi_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
@@ -240,9 +247,6 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
             for i in range(len(party_list)):
                 smashed_list.append(party_list[i].forward_pass_multi_classification(n_classes))
 
-            # print(len(smashed_list))
-            # print(len(smashed_list[0]))
-
             party_shares = []
             for i in range(len(party_list)):
                 party_m_shares = []
@@ -250,9 +254,6 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
                     party_m_shares.append(
                         party_list[i].create_shares(smashed_list[i][j], config.k_value, config.random_coef))
                 party_shares.append(party_m_shares)
-
-            # print(len(party_shares))
-            # print(len(party_shares[0]))
 
             reset_servers(server_list)
             main_server.reset()
@@ -362,7 +363,7 @@ def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, part
                 loss_multi.append(abs(sigmoid_results[i - 1] - 1))
             else:
                 loss_multi.append(abs(sigmoid_results[i - 1] - 0))
-        test_loss_list.append(sum(loss_multi) / 3)
+        test_loss_list.append(sum(loss_multi) / n_classes)
 
         if predict == label_for_test:
             count_correct += 1

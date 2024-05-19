@@ -275,8 +275,8 @@ if __name__ == "__main__":
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_3()
 
     elif dataset_4:
-        config.learning_rate = 0.01
-        n_epochs = 35
+        config.learning_rate = 0.001
+        n_epochs = 25
         dataset_name = 'phishing'
         problem_type = 'multi'
         n_classes = 3

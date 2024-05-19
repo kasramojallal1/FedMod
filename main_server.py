@@ -143,13 +143,9 @@ class MainServer:
 
     def calculate_multi_loss(self, number_of_classes):
         self.correct = None
-
-        label_for_round = self.labels.loc[self.round]
-        label_for_round = label_for_round.to_numpy()
-        label_for_round = label_for_round[0]
+        label_for_round = self.labels.loc[self.round].to_numpy()[0]
 
         sigmoid_results = []
-
         for i in range(number_of_classes):
             sum_data = np.sum(self.multi_data[i])
             sum_data = math.fmod(sum_data, k_value)
