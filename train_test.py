@@ -22,8 +22,7 @@ import plotly.graph_objects as go
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.losses import BinaryCrossentropy
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
@@ -293,15 +292,11 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
 
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
+        test_precision_history.append(test_precision)
+        test_recall_history.append(test_recall)
 
         parties_reset(party_list)
         main_server.reset_round()
-
-        # print(train_accuracy_history[-1])
-
-    for i in range(len(train_accuracy_history)):
-        test_precision_history.append(0)
-        test_recall_history.append(0)
 
     input_shape = 0
     for i in range(len(party_list)):
@@ -314,11 +309,6 @@ def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, part
     n_features = X_test.shape[1]
     column_share = n_features // n_parties
     extra_columns = n_features % n_parties
-
-    true_positive = 0
-    true_negative = 0
-    false_positive = 0
-    false_negative = 0
 
     parties_data = []
     parties = []
@@ -340,6 +330,8 @@ def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, part
     count_test_data = 0
     count_correct = 0
     test_loss_list = []
+    y_pred = []
+    y_label = []
 
     for n_data in range(len(parties[0].data)):
 
@@ -347,15 +339,15 @@ def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, part
         for i in range(len(parties)):
             smashed_list.append(parties[i].forward_pass_multi_classification(n_classes))
 
-        label_for_test = y_test.loc[count_test_data]
-        label_for_test = label_for_test.to_numpy()
-        label_for_test = label_for_test[0]
+        label_for_test = y_test.loc[count_test_data].to_numpy()[0]
+        y_label.append(label_for_test)
 
         sigmoid_results = []
         for i in range(n_classes):
             sigmoid_results.append(sigmoid(sum(smashed_list[0][i], smashed_list[1][i])))
 
         predict = np.argmax(sigmoid_results) + 1
+        y_pred.append(predict)
 
         loss_multi = []
         for i in range(1, n_classes + 1):
@@ -373,7 +365,10 @@ def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, part
     accuracy = count_correct / count_test_data
     loss = np.average(test_loss_list)
 
-    return accuracy, loss, 0, 0
+    precision_weighted = precision_score(y_label, y_pred, average='weighted')
+    recall_weighted = recall_score(y_label, y_pred, average='weighted')
+
+    return accuracy, loss, precision_weighted, recall_weighted
 
 
 def train_model_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,

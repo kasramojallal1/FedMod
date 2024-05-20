@@ -28,9 +28,9 @@ dataset_address_4 = './datasets/phishing.arff'
 dataset_address_5 = './datasets/parkinson.arff'
 
 dataset_1 = False
-dataset_2 = False
+dataset_2 = True
 dataset_3 = False
-dataset_4 = True
+dataset_4 = False
 dataset_5 = False
 
 
