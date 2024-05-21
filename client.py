@@ -17,6 +17,7 @@ class Client:
         self.error = error
         self.round = 0
         self.error_list = []
+        self.batch_errors = []
 
     def forward_pass(self, problem):
 
@@ -82,7 +83,6 @@ class Client:
         data_x = data_x.to_numpy()
         gradients = data_x * self.error
 
-        # self.weights = self.weights - (config.learning_rate * gradients)
         self.weights = self.weights - (config.learning_rate * (gradients + config.regularization_rate * self.weights))
         self.bias = self.bias - (config.learning_rate * self.error)
 
@@ -95,29 +95,26 @@ class Client:
             self.weights[i] = self.weights[i] - (config.learning_rate * (gradient + config.regularization_rate * self.weights[i]))
             self.bias[i] = self.bias[i] - (config.learning_rate * error_list[i])
 
+    def update_weights_batch(self, batch_size):
+        batch_data = self.data.loc[self.round - batch_size:self.round].to_numpy()
+
+        gradients_list = []
+        for i in range(batch_size):
+            gradients = batch_data[i] * self.batch_errors[i]
+            gradients_list.append(gradients)
+        batch_gradient = 1/batch_size * np.sum(gradients_list, axis=0)
+
+        self.weights = self.weights - (config.learning_rate * (batch_gradient + config.regularization_rate * self.weights))
+        self.bias = self.bias - (config.learning_rate * self.error)
+
+    def get_batch_error(self, error):
+        self.batch_errors.append(error)
+
+    def reset_batch_errors(self):
+        self.batch_errors = []
+
     def send_shares(self, share1, share2):
         pass
-
-    # def update_weights_batch(self):
-    #
-    #     gradient_list = []
-    #
-    #     for i in range(len(self.error_list)):
-    #         data_x = self.data.loc[i]
-    #         data_x = data_x.to_numpy()
-    #         gradient_list.append(data_x * self.error_list[i])
-    #
-    #     gradient_batch = gradient_list[0]
-    #     for i in range(1, len(gradient_list)):
-    #         gradient_batch += gradient_list[i]
-    #
-    #     gradient_batch = gradient_batch / len(gradient_list)
-    #     self.weights = self.weights - (config.learning_rate * gradient_batch)
-    #
-    #     bias_gradient = np.sum(self.error_list) / len(self.error_list)
-    #     self.bias = self.bias - (config.learning_rate * bias_gradient)
-    #
-    #     self.reset_error_list()
 
     def get_error(self, error):
         self.error = error
@@ -126,8 +123,6 @@ class Client:
         self.round = 0
 
     def create_shares(self, y_value, k_value, random_coef):
-        # print(f'Client {self.name}')
-        # print(f'y_value: {y_value}')
         if y_value >= 0:
             sum_values = random_coef * k_value + y_value
 

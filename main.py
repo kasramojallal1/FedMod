@@ -259,8 +259,8 @@ def run_baseline(X_train, X_test, y_train, y_test, input_shape, n_epochs, datase
 if __name__ == "__main__":
 
     if dataset_2:
-        config.learning_rate = 0.001
-        n_epochs = 35
+        config.learning_rate = 0.01
+        n_epochs = 40
         dataset_name = 'heart'
         problem_type = 'binary'
         n_classes = 2

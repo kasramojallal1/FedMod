@@ -153,7 +153,7 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
 
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
-        history = model_tf.fit(X_train, y_train, epochs=1, batch_size=1, verbose=0)
+        history = model_tf.fit(X_train, y_train, epochs=1, batch_size=8, verbose=0)
 
         # train_loss = history.history['loss'][0]
         # train_accuracy = history.history['accuracy'][0]
@@ -411,7 +411,14 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
 
             middle_servers_error = main_server.error
             parties_get_error(party_list, middle_servers_error)
-            parties_update_weights(party_list)
+
+            for i in range(len(party_list)):
+                party_list[i].get_batch_error(middle_servers_error)
+
+            if n_data % config.batch_size == config.batch_size - 1:
+                for party in party_list:
+                    party.update_weights_batch(config.batch_size)
+                    party.reset_batch_errors()
 
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:

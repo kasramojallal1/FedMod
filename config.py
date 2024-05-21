@@ -1,19 +1,15 @@
 import secrets
-from phe import paillier
 import tenseal as ts
+from phe import paillier
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-import os
 
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
-
 
 def derive_shared_key(private_key, public_key):
     shared_key = private_key.exchange(ec.ECDH(), public_key)
@@ -27,6 +23,7 @@ def derive_shared_key(private_key, public_key):
     return derived_key
 
 
+batch_size = 4
 learning_rate = 0.01
 regularization_rate = 0.001
 
