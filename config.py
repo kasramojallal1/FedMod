@@ -1,26 +1,15 @@
+import functions as func
+
 import secrets
 import tenseal as ts
 from phe import paillier
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
-
-def derive_shared_key(private_key, public_key):
-    shared_key = private_key.exchange(ec.ECDH(), public_key)
-    derived_key = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b'handshake data',
-        backend=default_backend()
-    ).derive(shared_key)
-    return derived_key
 
 
 batch_size = 4
@@ -56,4 +45,4 @@ type_DP = False
 
 private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
 public_key = private_key.public_key()
-shared_key = derive_shared_key(private_key, public_key)
+shared_key = func.derive_shared_key(private_key, public_key)

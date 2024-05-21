@@ -3,33 +3,8 @@ import pandas as pd
 import math
 
 import config
+import functions as func
 import train_test
-
-k_value = config.k_value
-
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-
-def check_correct_binary(sigmoid_result, label):
-    if sigmoid_result > 0.5:
-        predict = 1
-    else:
-        predict = 0
-
-    if predict == label:
-        return 1
-    else:
-        return 0
-
-
-def get_label_for_round(labels, round_n):
-    label_for_round = labels.loc[round_n]
-    label_for_round = label_for_round.to_numpy()
-    label_for_round = label_for_round[0]
-
-    return label_for_round
 
 
 class MainServer:
@@ -51,25 +26,25 @@ class MainServer:
 
         if problem == 'regression':
             sum_data = np.sum(self.data)
-            self.error = math.fmod(sum_data, k_value)
+            self.error = math.fmod(sum_data, config.k_value)
 
         elif problem == 'classification':
             self.correct = None
-            label_for_round = get_label_for_round(self.labels, self.round)
+            label_for_round = func.get_label_for_round(self.labels, self.round)
 
             sum_data = np.sum(self.data)
-            sum_data = math.fmod(sum_data, k_value)
+            sum_data = math.fmod(sum_data, config.k_value)
             sum_data = np.float64(sum_data)
 
-            a = sigmoid(sum_data)
+            a = func.sigmoid(sum_data)
             self.error = a - label_for_round
-            self.correct = check_correct_binary(a, label_for_round)
+            self.correct = func.check_correct_binary(a, label_for_round)
             self.round += 1
 
     def calculate_HE_loss(self, encrypted_numbers):
 
         self.correct = None
-        label_for_round = get_label_for_round(self.labels, self.round)
+        label_for_round = func.get_label_for_round(self.labels, self.round)
 
         encrypted_sum = encrypted_numbers[0]
         for enc_num in encrypted_numbers[1:]:
@@ -78,23 +53,23 @@ class MainServer:
         decrypted_sum = encrypted_sum.decrypt()[0]
         decrypted_sum = np.float64(decrypted_sum)
 
-        a = sigmoid(decrypted_sum)
+        a = func.sigmoid(decrypted_sum)
         self.error = a - label_for_round
-        self.correct = check_correct_binary(a, label_for_round)
+        self.correct = func.check_correct_binary(a, label_for_round)
         self.round += 1
 
         return self.error
 
     def calculate_paillier_loss(self, encrypted_numbers):
         self.correct = None
-        label_for_round = get_label_for_round(self.labels, self.round)
+        label_for_round = func.get_label_for_round(self.labels, self.round)
 
         encrypted_sum = encrypted_numbers[0] + encrypted_numbers[1]
         decrypted_sum = config.private_key.decrypt(encrypted_sum)
 
-        a = sigmoid(decrypted_sum)
+        a = func.sigmoid(decrypted_sum)
         self.error = a - label_for_round
-        self.correct = check_correct_binary(a, label_for_round)
+        self.correct = func.check_correct_binary(a, label_for_round)
         self.round += 1
 
         return self.error
@@ -102,13 +77,13 @@ class MainServer:
     def calculate_DP_loss(self, smashed_numbers, laplace_mech):
 
         self.correct = None
-        label_for_round = get_label_for_round(self.labels, self.round)
+        label_for_round = func.get_label_for_round(self.labels, self.round)
 
         noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
 
-        a = sigmoid(noisy_sum)
+        a = func.sigmoid(noisy_sum)
         self.error = a - label_for_round
-        self.correct = check_correct_binary(a, label_for_round)
+        self.correct = func.check_correct_binary(a, label_for_round)
         self.round += 1
 
         return self.error
@@ -124,19 +99,19 @@ class MainServer:
 
         intermediate_outputs = []
         for i in range(len(party_list)):
-            intermediate_outputs.append(train_test.compute_inner_product(self.encrypted_data[self.enc_round][i],
-                                                                         party_list[i].weights,
-                                                                         config.shared_key,
-                                                                         offset=self.offset_list[self.enc_round][i]))
+            intermediate_outputs.append(func.compute_inner_product(self.encrypted_data[self.enc_round][i],
+                                                                   party_list[i].weights,
+                                                                   config.shared_key,
+                                                                   offset=self.offset_list[self.enc_round][i]))
 
         self.correct = None
-        label_for_round = get_label_for_round(self.labels, self.round)
+        label_for_round = func.get_label_for_round(self.labels, self.round)
 
         sum_data = sum(intermediate_outputs)
-        a = sigmoid(sum_data)
+        a = func.sigmoid(sum_data)
 
         self.error = a - label_for_round
-        self.correct = check_correct_binary(a, label_for_round)
+        self.correct = func.check_correct_binary(a, label_for_round)
         self.round += 1
 
         return self.error
@@ -148,10 +123,10 @@ class MainServer:
         sigmoid_results = []
         for i in range(number_of_classes):
             sum_data = np.sum(self.multi_data[i])
-            sum_data = math.fmod(sum_data, k_value)
+            sum_data = math.fmod(sum_data, config.k_value)
             sum_data = np.float64(sum_data)
 
-            a = sigmoid(sum_data)
+            a = func.sigmoid(sum_data)
             sigmoid_results.append(a)
 
         predict = np.argmax(sigmoid_results) + 1

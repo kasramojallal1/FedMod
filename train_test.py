@@ -1,125 +1,16 @@
 import config
 import client
+import functions as func
 
-import math
-import time
 import numpy as np
 import pandas as pd
-import sympy
-import secrets
-import resource
 import sys
-import os
-
 import tenseal as ts
-from phe import paillier
 from diffprivlib.mechanisms import Laplace
-
-import plotly.io as pio
-import plotly.express as px
-import plotly.graph_objects as go
-
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.losses import BinaryCrossentropy
 from sklearn.metrics import accuracy_score, precision_score, recall_score
-
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-
-
-def encrypt_vector(vector, shared_key, scale_factor=1000000):
-    """Encrypt a vector element-wise using AES, scaling floats to integers."""
-    offset = min(0, min(vector)) * scale_factor
-    scaled_vector = [int((v - offset) * scale_factor) for v in vector]
-    encrypted_vector = []
-
-    for v in scaled_vector:
-        iv = os.urandom(16)  # Generate a random IV
-        cipher = Cipher(algorithms.AES(shared_key), modes.CFB(iv), backend=default_backend())
-        encryptor = cipher.encryptor()
-        ct = encryptor.update(
-            v.to_bytes((v.bit_length() + 7) // 8, byteorder='big', signed=False)) + encryptor.finalize()
-        encrypted_vector.append((iv, ct))
-
-    return encrypted_vector, offset
-
-
-def compute_inner_product(encrypted_vector, weights, shared_key, scale_factor=1000000, offset=0):
-    """Decrypt and compute the inner product using AES, scaling back to floats and adjusting for offset."""
-    decrypted_vector = []
-
-    for iv, ct in encrypted_vector:
-        cipher = Cipher(algorithms.AES(shared_key), modes.CFB(iv), backend=default_backend())
-        decryptor = cipher.decryptor()
-        pt = decryptor.update(ct) + decryptor.finalize()
-        v = int.from_bytes(pt, byteorder='big', signed=False)
-        decrypted_vector.append(v)
-
-    adjusted_vector = [(v / scale_factor) + offset for v in decrypted_vector]
-    return np.dot(adjusted_vector, weights)
-
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-
-def reset_servers(server_list):
-    for server in server_list:
-        server.reset()
-
-
-def parties_create_shares(party_list, problem):
-    k_value = config.k_value
-    random_coef = config.random_coef
-
-    party_shares = []
-
-    for party in party_list:
-        party_shares.append(party.create_shares(party.forward_pass(problem=problem), k_value, random_coef))
-
-    return party_shares
-
-
-def servers_get_from_clients(server_list, party_shares):
-    for i in range(len(party_shares)):
-        server_list[0].get_from_client(party_shares[i][0])
-        server_list[1].get_from_client(party_shares[i][1])
-
-
-def servers_sum_data(server_list):
-    sumed_data = []
-
-    for server in server_list:
-        sumed_data.append(server.sum_data())
-
-    return sumed_data
-
-
-def main_server_get_data(main_server, sumed_data):
-    for i in range(len(sumed_data)):
-        main_server.get_data(sumed_data[i])
-
-
-def parties_get_error(party_list, middle_servers_error):
-    for i in range(len(party_list)):
-        party_list[i].get_error(middle_servers_error)
-
-
-def parties_update_weights(party_list):
-    for party in party_list:
-        party.update_weights()
-
-
-def parties_reset(party_list):
-    for party in party_list:
-        party.reset()
 
 
 def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name):
@@ -254,12 +145,13 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
                         party_list[i].create_shares(smashed_list[i][j], config.k_value, config.random_coef))
                 party_shares.append(party_m_shares)
 
-            reset_servers(server_list)
+            for server in server_list:
+                server.reset()
             main_server.reset()
 
             for i in range(n_classes):
-                servers_get_from_clients(server_list=server_list, party_shares=[party_shares[0][i], party_shares[1][i]])
-                sumed_data = servers_sum_data(server_list=server_list)
+                func.servers_get_from_clients(server_list=server_list, party_shares=[party_shares[0][i], party_shares[1][i]])
+                sumed_data = func.servers_sum_data(server_list=server_list)
                 main_server.get_multi_data(sumed_data)
 
             main_server.calculate_multi_loss(n_classes)
@@ -295,7 +187,7 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
         test_precision_history.append(test_precision)
         test_recall_history.append(test_recall)
 
-        parties_reset(party_list)
+        func.parties_reset(party_list)
         main_server.reset_round()
 
     input_shape = 0
@@ -344,7 +236,7 @@ def test_model_multi_classification(n_parties, X_test, y_test, party_coefs, part
 
         sigmoid_results = []
         for i in range(n_classes):
-            sigmoid_results.append(sigmoid(sum(smashed_list[0][i], smashed_list[1][i])))
+            sigmoid_results.append(func.sigmoid(sum(smashed_list[0][i], smashed_list[1][i])))
 
         predict = np.argmax(sigmoid_results) + 1
         y_pred.append(predict)
@@ -395,7 +287,8 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
                 party_shares.append(party.create_shares(party.forward_pass(problem='classification'), config.k_value,
                                                         config.random_coef))
 
-            reset_servers(server_list)
+            for server in server_list:
+                server.reset()
 
             for i in range(len(party_shares)):
                 server_list[0].get_from_client(party_shares[i][0])
@@ -406,11 +299,11 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
                 sumed_data.append(server.sum_data())
 
             main_server.reset()
-            main_server_get_data(main_server, sumed_data)
+            func.main_server_get_data(main_server, sumed_data)
             main_server.calculate_loss(problem='classification')
 
             middle_servers_error = main_server.error
-            parties_get_error(party_list, middle_servers_error)
+            func.parties_get_error(party_list, middle_servers_error)
 
             for i in range(len(party_list)):
                 party_list[i].get_batch_error(middle_servers_error)
@@ -452,7 +345,7 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
         test_precision_history.append(test_precision)
         test_recall_history.append(test_recall)
 
-        parties_reset(party_list)
+        func.parties_reset(party_list)
         main_server.reset_round()
 
     if dataset_name == 'ionosphere':
@@ -509,7 +402,7 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
         label_for_test = label_for_test.to_numpy()
         label_for_test = label_for_test[0]
 
-        a = sigmoid(sum(smashed_list))
+        a = func.sigmoid(sum(smashed_list))
         test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
@@ -597,12 +490,13 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
                         size_of_transfer_data += sys.getsizeof(smashed_numbers[i])
                 main_server_error = main_server.calculate_DP_loss(smashed_numbers, laplace_mech)
 
-            parties_get_error(party_list, main_server_error)
+            func.parties_get_error(party_list, main_server_error)
             if n_data == 0:
                 for i in range(len(party_list)):
                     size_of_transfer_data += sys.getsizeof(main_server_error)
 
-            parties_update_weights(party_list)
+            for party in party_list:
+                party.update_weights()
 
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:
@@ -623,7 +517,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
 
-        parties_reset(party_list)
+        func.parties_reset(party_list)
         main_server.reset_round()
 
     if dataset_name == 'ionosphere':
@@ -703,7 +597,7 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
                 encrypted_sum += enc_num
 
             decrypted_sum = np.float64(encrypted_sum.decrypt()[0])
-            a = sigmoid(decrypted_sum)
+            a = func.sigmoid(decrypted_sum)
             test_loss_list.append(abs(a - label_for_test))
 
         elif type_paillier:
@@ -712,12 +606,12 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             for i in range(n_parties):
                 encrypted_sum += encrypted_functional[i]
             decrypted_sum = config.private_key.decrypt(encrypted_sum)
-            a = sigmoid(decrypted_sum)
+            a = func.sigmoid(decrypted_sum)
             test_loss_list.append(abs(a - label_for_test))
 
         elif type_DP:
             noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
-            a = sigmoid(noisy_sum)
+            a = func.sigmoid(noisy_sum)
             test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
@@ -760,7 +654,7 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                 encrypted_data_list = []
                 offset_list = []
                 for i in range(len(party_list)):
-                    encrypted_data, offset = encrypt_vector(party_list[i].give_data_for_round(), config.shared_key)
+                    encrypted_data, offset = func.encrypt_vector(party_list[i].give_data_for_round(), config.shared_key)
                     offset_list.append(offset)
                     encrypted_data_list.append(encrypted_data)
 
@@ -781,8 +675,9 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
 
                     size_of_transfer_data += sys.getsizeof(main_server_error)
 
-            parties_get_error(party_list, main_server_error)
-            parties_update_weights(party_list)
+            func.parties_get_error(party_list, main_server_error)
+            for party in party_list:
+                party.update_weights()
 
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:
@@ -808,7 +703,7 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
         test_precision_history.append(test_precision)
         test_recall_history.append(test_recall)
 
-        parties_reset(party_list)
+        func.parties_reset(party_list)
         main_server.reset_round()
         main_server.reset_encrypted_round()
 
@@ -862,13 +757,13 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         encrypted_data_list = []
         offset_list = []
         for i in range(len(party_list)):
-            encrypted_data, offset = encrypt_vector(parties[i].give_data_for_round(), config.shared_key)
+            encrypted_data, offset = func.encrypt_vector(parties[i].give_data_for_round(), config.shared_key)
             offset_list.append(offset)
             encrypted_data_list.append(encrypted_data)
 
         intermediate_outputs = []
         for i in range(len(party_list)):
-            intermediate_outputs.append(compute_inner_product(encrypted_data_list[i],
+            intermediate_outputs.append(func.compute_inner_product(encrypted_data_list[i],
                                                               party_list[i].weights,
                                                               config.shared_key,
                                                               offset=offset_list[i]))
@@ -878,7 +773,7 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         label_for_test = label_for_test[0]
 
         FE_sum = np.sum(intermediate_outputs)
-        a = sigmoid(FE_sum)
+        a = func.sigmoid(FE_sum)
         test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
