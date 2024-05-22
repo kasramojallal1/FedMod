@@ -494,8 +494,16 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
                 for i in range(len(party_list)):
                     size_of_transfer_data += sys.getsizeof(main_server_error)
 
-            for party in party_list:
-                party.update_weights()
+            # for party in party_list:
+            #     party.update_weights()
+
+            for i in range(len(party_list)):
+                party_list[i].get_batch_error(main_server_error)
+
+            if n_data % config.batch_size == config.batch_size - 1:
+                for party in party_list:
+                    party.update_weights_batch(config.batch_size)
+                    party.reset_batch_errors()
 
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:
@@ -677,8 +685,16 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
 
             func.parties_get_error(party_list, main_server_error)
 
-            for party in party_list:
-                party.update_weights()
+            for i in range(len(party_list)):
+                party_list[i].get_batch_error(main_server_error)
+
+            # for party in party_list:
+            #     party.update_weights()
+
+            if n_data % config.batch_size == config.batch_size - 1:
+                for party in party_list:
+                    party.update_weights_batch(config.batch_size)
+                    party.reset_batch_errors()
 
             error_history.append(abs(party_list[0].error))
             if main_server.correct == 1:
