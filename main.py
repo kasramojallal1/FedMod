@@ -66,7 +66,11 @@ if __name__ == "__main__":
         n_classes = 2
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_5(dataset_address_5)
 
-    name_list = ['FedV', 'FedMod', 'Baseline']
+    else:
+        print("Dataset not found")
+        exit()
+
+    name_list = ['FedMod', 'Centralized', 'FedV', 'HE', 'DP']
     n_sets = len(name_list)
     file_write_path_figures = f"results/{dataset_name}/figure-p{config.n_parties}"
     file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}"
@@ -74,53 +78,46 @@ if __name__ == "__main__":
     for i in range(2, 3):
         config.n_parties = i
 
-        party_sets, server_sets, main_server_sets = func.get_sets_of_entities(n_sets=n_sets, problem_type=problem_type,
+        party_sets, server_sets, main_server_sets = func.get_sets_of_entities(n_sets=n_sets - 1, problem_type=problem_type,
                                                                               n_classes=n_classes, X_train=X_train,
                                                                               y_train=y_train)
 
-        # fe_results, fe_scores, fe_extra, fe_time = run_fe(party_sets[0], server_sets[0], main_server_sets[0],
-        #                                                   X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+        all_results = [
+            model_run.run_fedmod(party_set=party_sets[3], server_set=server_sets[3],
+                                 main_server_set=main_server_sets[3],
+                                 X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
+                                 dataset_name=dataset_name, problem_type=problem_type, n_classes=n_classes),
+            model_run.run_baseline(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test,
+                                   input_shape=config.nn_input_shape, n_epochs=n_epochs, dataset_name=dataset_name,
+                                   problem_type=problem_type, n_classes=n_classes),
+            model_run.run_fe(party_set=party_sets[0], server_set=server_sets[0], main_server_set=main_server_sets[0],
+                             X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
+                             dataset_name=dataset_name),
+            model_run.run_he(party_set=party_sets[1], server_set=server_sets[1], main_server_set=main_server_sets[1],
+                             X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
+                             dataset_name=dataset_name),
+            model_run.run_dp(party_set=party_sets[2], server_set=server_sets[2], main_server_set=main_server_sets[2],
+                             X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
+                             dataset_name=dataset_name)]
 
-        # he_results, he_extra, he_time = run_he(party_sets[1], server_sets[1], main_server_sets[1],
-        #                                        X_train, y_train, X_test, y_test, n_epochs, dataset_name)
+        train_loss_list = []
+        train_accuracy_list = []
+        test_loss_list = []
+        test_accuracy_list = []
+        test_precision_list = []
+        test_recall_list = []
+        size_transfer_list = []
+        time_list = []
 
-        fed_results, fed_scores, fed_extra, fed_time = model_run.run_fedmod(party_set=party_sets[2],
-                                                                            server_set=server_sets[2],
-                                                                            main_server_set=main_server_sets[2],
-                                                                            X_train=X_train, y_train=y_train,
-                                                                            X_test=X_test, y_test=y_test,
-                                                                            n_epochs=n_epochs,
-                                                                            dataset_name=dataset_name,
-                                                                            problem_type=problem_type,
-                                                                            n_classes=n_classes)
-
-        baseline_results, baseline_scores, baseline_extra, baseline_time = model_run.run_baseline(X_train=X_train,
-                                                                                                  X_test=X_test,
-                                                                                                  y_train=y_train,
-                                                                                                  y_test=y_test,
-                                                                                                  input_shape=fed_extra[
-                                                                                                      0],
-                                                                                                  n_epochs=n_epochs,
-                                                                                                  dataset_name=dataset_name,
-                                                                                                  problem_type=problem_type,
-                                                                                                  n_classes=n_classes)
-
-        fe_results = fed_results
-        fe_scores = fed_scores
-        fe_extra = fed_extra
-        fe_time = fed_time
-
-        train_loss_list = [fe_results[0], fed_results[0], baseline_results[0]]
-        train_accuracy_list = [fe_results[1], fed_results[1], baseline_results[1]]
-
-        test_loss_list = [fe_results[2], fed_results[2], baseline_results[2]]
-        test_accuracy_list = [fe_results[3], fed_results[3], baseline_results[3]]
-
-        test_precision_list = [fe_scores[0], fed_scores[0], baseline_scores[0]]
-        test_recall_list = [fe_scores[1], fed_scores[1], baseline_scores[1]]
-
-        time_list = [fe_time, fed_time, baseline_time]
-        size_transfer_list = [fe_extra[1], fed_extra[1], 0]
+        for j in range(n_sets):
+            train_loss_list.append(all_results[j][0])
+            train_accuracy_list.append(all_results[j][1])
+            test_loss_list.append(all_results[j][2])
+            test_accuracy_list.append(all_results[j][3])
+            test_precision_list.append(all_results[j][4])
+            test_recall_list.append(all_results[j][5])
+            size_transfer_list.append(all_results[j][6])
+            time_list.append(all_results[j][7])
 
         func.draw_graphs(train_loss_list,
                          train_accuracy_list,

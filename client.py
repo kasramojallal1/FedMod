@@ -1,7 +1,5 @@
 import numpy as np
 import secrets
-import math
-import socket
 
 import config
 

@@ -1,8 +1,11 @@
 import time
+
+import config
 import train_test
 
 
-def run_fedmod(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name, problem_type, n_classes):
+def run_fedmod(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name,
+               problem_type, n_classes):
     start_time = time.time()
 
     if problem_type == 'binary':
@@ -23,27 +26,45 @@ def run_fedmod(party_set, server_set, main_server_set, X_train, y_train, X_test,
 
     end_time = time.time()
 
-    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
-    algorithm_scores = [test_precision, test_recall]
-    extra_results = [input_shape, size_of_data_transfer]
+    config.nn_input_shape = input_shape
     time_taken = end_time - start_time
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy, test_precision, test_recall, size_of_data_transfer, time_taken]
 
-    return algorithm_results, algorithm_scores, extra_results, time_taken
+    return algorithm_results
 
 
 def run_he(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
     start_time = time.time()
-    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer = train_test.train_HE_binary_classification(
+
+    config.type_paillier = True
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer, test_precision, test_recall = train_test.train_HE_binary_classification(
         dataset_name=dataset_name, n_epochs=n_epochs,
         party_list=party_set, server_list=server_set, main_server=main_server_set,
         X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
     end_time = time.time()
+    config.type_paillier = False
 
-    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
-    extra_results = [input_shape, size_of_data_transfer]
     time_taken = end_time - start_time
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy, test_precision, test_recall, size_of_data_transfer, time_taken]
 
-    return algorithm_results, extra_results, time_taken
+    return algorithm_results
+
+
+def run_dp(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
+    start_time = time.time()
+
+    config.type_DP = True
+    train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer, test_precision, test_recall = train_test.train_HE_binary_classification(
+        dataset_name=dataset_name, n_epochs=n_epochs,
+        party_list=party_set, server_list=server_set, main_server=main_server_set,
+        X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+    end_time = time.time()
+    config.type_DP = False
+
+    time_taken = end_time - start_time
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy, test_precision, test_recall, size_of_data_transfer, time_taken]
+
+    return algorithm_results
 
 
 def run_fe(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
@@ -54,12 +75,10 @@ def run_fe(party_set, server_set, main_server_set, X_train, y_train, X_test, y_t
         X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
     end_time = time.time()
 
-    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
-    algorithm_scores = [test_precision, test_recall]
-    extra_results = [input_shape, size_of_data_transfer]
     time_taken = end_time - start_time
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy, test_precision, test_recall, size_of_data_transfer, time_taken]
 
-    return algorithm_results, algorithm_scores, extra_results, time_taken
+    return algorithm_results
 
 
 def run_baseline(X_train, X_test, y_train, y_test, input_shape, n_epochs, dataset_name, problem_type, n_classes):
@@ -80,9 +99,7 @@ def run_baseline(X_train, X_test, y_train, y_test, input_shape, n_epochs, datase
 
     end_time = time.time()
 
-    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy]
-    algorithm_scores = [test_precision, test_recall]
-    extra_results = [0, 0]
     time_taken = end_time - start_time
+    algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy, test_precision, test_recall, 0, time_taken]
 
-    return algorithm_results, algorithm_scores, extra_results, time_taken
+    return algorithm_results

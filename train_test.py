@@ -67,7 +67,8 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
     return baseline_train_accuracy, baseline_test_accuracy, baseline_train_loss, baseline_test_loss, baseline_test_precision, baseline_test_recall
 
 
-def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name, n_classes):
+def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name,
+                             n_classes):
     baseline_train_accuracy = []
     baseline_test_accuracy = []
 
@@ -90,9 +91,9 @@ def train_mlp_multi_baseline(n_epochs, X_train, y_train, X_test, y_test, input_s
     optimizer = tf.keras.optimizers.SGD(learning_rate=config.learning_rate)
     loss = tf.keras.losses.CategoricalCrossentropy()
     metrics = ['accuracy',
-        tf.keras.metrics.Precision(name='precision'),
-        tf.keras.metrics.Recall(name='recall')
-    ]
+               tf.keras.metrics.Precision(name='precision'),
+               tf.keras.metrics.Recall(name='recall')
+               ]
     model_tf.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     for epoch in range(n_epochs):
@@ -150,7 +151,8 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
             main_server.reset()
 
             for i in range(n_classes):
-                func.servers_get_from_clients(server_list=server_list, party_shares=[party_shares[0][i], party_shares[1][i]])
+                func.servers_get_from_clients(server_list=server_list,
+                                              party_shares=[party_shares[0][i], party_shares[1][i]])
                 sumed_data = func.servers_sum_data(server_list=server_list)
                 main_server.get_multi_data(sumed_data)
 
@@ -176,11 +178,12 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
             parties_coefs.append(party.weights)
             parties_biases.append(party.bias)
 
-        test_accuracy, test_loss, test_precision, test_recall = test_model_multi_classification(n_parties=len(party_list),
-                                                                                                X_test=X_test, y_test=y_test,
-                                                                                                party_coefs=parties_coefs,
-                                                                                                party_biases=parties_biases,
-                                                                                                n_classes=n_classes)
+        test_accuracy, test_loss, test_precision, test_recall = test_model_multi_classification(
+            n_parties=len(party_list),
+            X_test=X_test, y_test=y_test,
+            party_coefs=parties_coefs,
+            party_biases=parties_biases,
+            n_classes=n_classes)
 
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
@@ -439,14 +442,10 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
     train_loss_history = []
     test_accuracy_history = []
     test_loss_history = []
+    test_precision_history = []
+    test_recall_history = []
 
     size_of_transfer_data = 0
-
-    type_HE = config.type_HE
-    type_paillier = config.type_paillier
-    type_DP = config.type_DP
-    if not type_HE and not type_paillier and not type_DP:
-        config.type_HE = True
 
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Epoch:{epoch + 1}')
@@ -463,28 +462,28 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
                 smashed_numbers.append(smashed_list[i][0])
 
             encrypted_functional = []
-            if type_HE:
+            if config.type_HE:
                 encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
-            elif type_paillier:
+            elif config.type_paillier:
                 for i in range(len(party_list)):
                     encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
-            elif type_DP:
+            elif config.type_DP:
                 epsilon = 1.0  # Privacy budget
                 laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
 
             main_server.reset()
 
-            if type_HE:
+            if config.type_HE:
                 if n_data == 0:
                     for i in range(len(party_list)):
                         size_of_transfer_data += sys.getsizeof(encrypted_numbers[i])
                 main_server_error = main_server.calculate_HE_loss(encrypted_numbers)
-            elif type_paillier:
+            elif config.type_paillier:
                 if n_data == 0:
                     for i in range(len(party_list)):
                         size_of_transfer_data += sys.getsizeof(encrypted_functional[i])
                 main_server_error = main_server.calculate_paillier_loss(encrypted_functional)
-            elif type_DP:
+            elif config.type_DP:
                 if n_data == 0:
                     for i in range(len(party_list)):
                         size_of_transfer_data += sys.getsizeof(smashed_numbers[i])
@@ -511,11 +510,15 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             parties_coefs.append(party.weights)
             parties_biases.append(party.bias)
 
-        test_accuracy, test_loss = test_HE_binary_classification(len(party_list), X_test, y_test,
-                                                                 parties_coefs, parties_biases, )
+        test_accuracy, test_loss, test_precision, test_recall = test_HE_binary_classification(len(party_list),
+                                                                                              X_test, y_test,
+                                                                                              parties_coefs,
+                                                                                              parties_biases, )
 
         test_loss_history.append(test_loss)
         test_accuracy_history.append(test_accuracy)
+        test_precision_history.append(test_precision)
+        test_recall_history.append(test_recall)
 
         func.parties_reset(party_list)
         main_server.reset_round()
@@ -531,19 +534,13 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
     for i in range(len(party_list)):
         input_shape += len(party_list[i].weights)
 
-    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data, test_precision_history, test_recall_history
 
 
 def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_biases):
     n_features = X_test.shape[1]
     column_share = n_features // n_parties
     extra_columns = n_features % n_parties
-
-    type_HE = config.type_HE
-    type_paillier = config.type_paillier
-    type_DP = config.type_DP
-    if not type_HE and not type_paillier and not type_DP:
-        config.type_HE = True
 
     parties_data = []
     parties = []
@@ -565,6 +562,8 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
     count_test_data = 0
     count_correct = 0
     test_loss_list = []
+    y_pred = []
+    y_label = []
 
     for n_data in range(len(parties[0].data)):
         smashed_list = []
@@ -576,22 +575,19 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             smashed_numbers.append(smashed_list[i][0])
 
         encrypted_functional = []
-        if type_HE:
+        if config.type_HE:
             encrypted_numbers = [ts.ckks_vector(config.context, [num]) for num in smashed_numbers]
-        elif type_paillier:
-            # encrypted_number1 = config.public_key.encrypt(smashed_numbers[0])
-            # encrypted_number2 = config.public_key.encrypt(smashed_numbers[1])
+        elif config.type_paillier:
             for i in range(n_parties):
                 encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
-        elif type_DP:
+        elif config.type_DP:
             epsilon = 1.0  # Privacy budget
             laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
 
-        label_for_test = y_test.loc[count_test_data]
-        label_for_test = label_for_test.to_numpy()
-        label_for_test = label_for_test[0]
+        label_for_test = y_test.loc[count_test_data].to_numpy()[0]
+        y_label.append(label_for_test)
 
-        if type_HE:
+        if config.type_HE:
             encrypted_sum = encrypted_numbers[0]
             for enc_num in encrypted_numbers[1:]:
                 encrypted_sum += enc_num
@@ -600,7 +596,7 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             a = func.sigmoid(decrypted_sum)
             test_loss_list.append(abs(a - label_for_test))
 
-        elif type_paillier:
+        elif config.type_paillier:
             # encrypted_sum = encrypted_number1 + encrypted_number2
             encrypted_sum = 0
             for i in range(n_parties):
@@ -609,17 +605,19 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             a = func.sigmoid(decrypted_sum)
             test_loss_list.append(abs(a - label_for_test))
 
-        elif type_DP:
+        elif config.type_DP:
             noisy_sum = sum(laplace_mech.randomise(value) for value in smashed_numbers)
             a = func.sigmoid(noisy_sum)
             test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
             a = 1
+            y_pred.append(a)
             if label_for_test == a:
                 count_correct += 1
         else:
             a = 0
+            y_pred.append(a)
             if label_for_test == a:
                 count_correct += 1
 
@@ -627,8 +625,10 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
 
     accuracy = count_correct / count_test_data
     loss = np.average(test_loss_list)
+    precision_weighted = precision_score(y_label, y_pred, average='weighted')
+    recall_weighted = recall_score(y_label, y_pred, average='weighted')
 
-    return accuracy, loss
+    return accuracy, loss, precision_weighted, recall_weighted
 
 
 def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
@@ -676,6 +676,7 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                     size_of_transfer_data += sys.getsizeof(main_server_error)
 
             func.parties_get_error(party_list, main_server_error)
+
             for party in party_list:
                 party.update_weights()
 
@@ -764,9 +765,9 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
         intermediate_outputs = []
         for i in range(len(party_list)):
             intermediate_outputs.append(func.compute_inner_product(encrypted_data_list[i],
-                                                              party_list[i].weights,
-                                                              config.shared_key,
-                                                              offset=offset_list[i]))
+                                                                   party_list[i].weights,
+                                                                   config.shared_key,
+                                                                   offset=offset_list[i]))
 
         label_for_test = y_test.loc[count_test_data]
         label_for_test = label_for_test.to_numpy()

@@ -11,11 +11,11 @@ from cryptography.hazmat.backends import default_backend
 k_value = 123
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
 
-
 batch_size = 4
 learning_rate = 0.01
 regularization_rate = 0.001
 
+nn_input_shape = 0
 plot_intervals = 60
 n_parties = 2
 n_servers = 2
@@ -31,11 +31,11 @@ context = ts.context(ts.SCHEME_TYPE.CKKS,
 context.global_scale = global_scale = 2 ** 10
 context.generate_galois_keys()
 
-# key_size = 256
-# public_key, private_key = paillier.generate_paillier_keypair(n_length=key_size)
+key_size = 256
+public_key, private_key = paillier.generate_paillier_keypair(n_length=key_size)
 
 type_HE = False
-type_paillier = True
+type_paillier = False
 type_DP = False
 
 # key_FE = RSA.generate(512)
@@ -43,6 +43,6 @@ type_DP = False
 # encryptor = PKCS1_OAEP.new(public_key_FE)
 # decryptor = PKCS1_OAEP.new(key_FE)
 
-private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
-public_key = private_key.public_key()
-shared_key = func.derive_shared_key(private_key, public_key)
+private_key_fe = ec.generate_private_key(ec.SECP256R1(), default_backend())
+public_key_fe = private_key_fe.public_key()
+shared_key = func.derive_shared_key(private_key_fe, public_key_fe)
