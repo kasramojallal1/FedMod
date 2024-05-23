@@ -16,10 +16,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score
 def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_shape, output_shape, dataset_name):
     baseline_train_accuracy = []
     baseline_test_accuracy = []
-
     baseline_train_loss = []
     baseline_test_loss = []
-
     baseline_test_precision = []
     baseline_test_recall = []
 
@@ -31,6 +29,11 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
         X_test = X_test.astype('float32')
         y_test = y_test.astype('float32')
 
+    metrics = ['accuracy',
+               tf.keras.metrics.Precision(name='precision'),
+               tf.keras.metrics.Recall(name='recall')
+               ]
+
     model_tf = tf.keras.Sequential([
         tf.keras.layers.Dense(output_shape, activation='sigmoid', input_shape=(input_shape,),
                               kernel_regularizer=tf.keras.regularizers.l2(config.regularization_rate))
@@ -38,13 +41,13 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
     optimizer = tf.keras.optimizers.SGD(learning_rate=config.learning_rate)
 
     if dataset_name == 'ionosphere' or dataset_name == 'parkinson':
-        model_tf.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+        model_tf.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=metrics)
     else:
-        model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=['accuracy'])
+        model_tf.compile(optimizer=optimizer, loss='mean_absolute_error', metrics=metrics)
 
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
-        history = model_tf.fit(X_train, y_train, epochs=1, batch_size=8, verbose=0)
+        history = model_tf.fit(X_train, y_train, epochs=1, batch_size=config.batch_size, verbose=0)
 
         # train_loss = history.history['loss'][0]
         # train_accuracy = history.history['accuracy'][0]
@@ -53,11 +56,13 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
 
         # test_loss, test_accuracy = model_tf.evaluate(X_test, y_test, verbose=0)
 
-        y_test_pred = (model_tf.predict(X_test) > 0.5).astype("int32")
-        test_accuracy = accuracy_score(y_test, y_test_pred)
-        test_loss = bce(y_test, y_test_pred).numpy()
-        test_precision = precision_score(y_test, y_test_pred)
-        test_recall = recall_score(y_test, y_test_pred)
+        # y_test_pred = (model_tf.predict(X_test) > 0.5).astype("int32")
+        # test_accuracy = accuracy_score(y_test, y_test_pred)
+        # test_loss = bce(y_test, y_test_pred).numpy()
+        # test_precision = precision_score(y_test, y_test_pred)
+        # test_recall = recall_score(y_test, y_test_pred)
+
+        test_loss, test_accuracy, test_precision, test_recall = model_tf.evaluate(X_test, y_test, verbose=0)
 
         baseline_test_loss.append(test_loss)
         baseline_test_accuracy.append(test_accuracy)
@@ -395,45 +400,39 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
     count_test_data = 0
     count_correct = 0
     test_loss_list = []
+    y_label = []
+    y_pred = []
 
     for n_data in range(len(parties[0].data)):
         smashed_list = []
         for i in range(len(parties)):
             smashed_list.append(parties[i].forward_pass(problem='classification'))
 
-        label_for_test = y_test.loc[count_test_data]
-        label_for_test = label_for_test.to_numpy()
-        label_for_test = label_for_test[0]
+        label_for_test = y_test.loc[count_test_data].to_numpy()[0]
+        y_label.append(label_for_test)
 
         a = func.sigmoid(sum(smashed_list))
         test_loss_list.append(abs(a - label_for_test))
 
         if a > 0.5:
             a = 1
+            y_pred.append(a)
             if label_for_test == a:
                 count_correct += 1
         else:
             a = 0
+            y_pred.append(a)
             if label_for_test == a:
                 count_correct += 1
 
         count_test_data += 1
 
-        if a == 1 and label_for_test == 1:
-            true_positive += 1
-        elif a == 0 and label_for_test == 0:
-            true_negative += 1
-        elif a == 1 and label_for_test == 0:
-            false_positive += 1
-        elif a == 0 and label_for_test == 1:
-            false_negative += 1
-
     accuracy = count_correct / count_test_data
     loss = np.average(test_loss_list)
-    precision = true_positive / ((true_positive + false_positive) + 1e-10)
-    recall = true_positive / ((true_positive + false_negative) + 1e-10)
+    precision_weighted = precision_score(y_label, y_pred, average='weighted')
+    recall_weighted = recall_score(y_label, y_pred, average='weighted')
 
-    return accuracy, loss, precision, recall
+    return accuracy, loss, precision_weighted, recall_weighted
 
 
 def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,
@@ -468,7 +467,7 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
                 for i in range(len(party_list)):
                     encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
             elif config.type_DP:
-                epsilon = 1.0  # Privacy budget
+                epsilon = 0.5  # Privacy budget
                 laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
 
             main_server.reset()
@@ -492,7 +491,10 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             func.parties_get_error(party_list, main_server_error)
             if n_data == 0:
                 for i in range(len(party_list)):
-                    size_of_transfer_data += sys.getsizeof(main_server_error)
+                    if config.type_paillier:
+                        size_of_transfer_data += sys.getsizeof(config.public_key.encrypt(main_server_error))
+                    else:
+                        size_of_transfer_data += sys.getsizeof(main_server_error)
 
             # for party in party_list:
             #     party.update_weights()
@@ -589,7 +591,7 @@ def test_HE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
             for i in range(n_parties):
                 encrypted_functional.append(config.public_key.encrypt(smashed_numbers[i]))
         elif config.type_DP:
-            epsilon = 1.0  # Privacy budget
+            epsilon = 0.5  # Privacy budget
             laplace_mech = Laplace(epsilon=epsilon, sensitivity=1)
 
         label_for_test = y_test.loc[count_test_data].to_numpy()[0]
@@ -643,13 +645,10 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                                    X_test, y_test):
     train_accuracy_history = []
     train_loss_history = []
-
     test_accuracy_history = []
     test_loss_history = []
-
     test_precision_history = []
     test_recall_history = []
-
     size_of_transfer_data = 0
 
     for epoch in range(n_epochs):
@@ -743,11 +742,6 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
     column_share = n_features // n_parties
     extra_columns = n_features % n_parties
 
-    true_positive = 0
-    true_negative = 0
-    false_positive = 0
-    false_negative = 0
-
     parties_data = []
     parties = []
 
@@ -768,6 +762,8 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
     count_test_data = 0
     count_correct = 0
     test_loss_list = []
+    y_pred = []
+    y_label = []
 
     for n_data in range(len(parties[0].data)):
 
@@ -785,9 +781,8 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
                                                                    config.shared_key,
                                                                    offset=offset_list[i]))
 
-        label_for_test = y_test.loc[count_test_data]
-        label_for_test = label_for_test.to_numpy()
-        label_for_test = label_for_test[0]
+        label_for_test = y_test.loc[count_test_data].to_numpy()[0]
+        y_label.append(label_for_test)
 
         FE_sum = np.sum(intermediate_outputs)
         a = func.sigmoid(FE_sum)
@@ -795,27 +790,20 @@ def test_FE_binary_classification(n_parties, X_test, y_test, party_coefs, party_
 
         if a > 0.5:
             a = 1
+            y_pred.append(a)
             if label_for_test == a:
                 count_correct += 1
         else:
             a = 0
+            y_pred.append(a)
             if label_for_test == a:
                 count_correct += 1
 
         count_test_data += 1
 
-        if a == 1 and label_for_test == 1:
-            true_positive += 1
-        elif a == 0 and label_for_test == 0:
-            true_negative += 1
-        elif a == 1 and label_for_test == 0:
-            false_positive += 1
-        elif a == 0 and label_for_test == 1:
-            false_negative += 1
-
     accuracy = count_correct / count_test_data
     loss = np.average(test_loss_list)
-    precision = true_positive / ((true_positive + false_positive) + 1e-10)
-    recall = true_positive / ((true_positive + false_negative) + 1e-10)
+    precision_weighted = precision_score(y_label, y_pred, average='weighted')
+    recall_weighted = recall_score(y_label, y_pred, average='weighted')
 
-    return accuracy, loss, precision, recall
+    return accuracy, loss, precision_weighted, recall_weighted

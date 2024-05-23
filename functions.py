@@ -243,6 +243,8 @@ def print_results(name_list, accuracy_list, loss_list, precision_list, recall_li
         file.write(f'Dataset Name: {dataset_name}\n')
         file.write(f'Learning Rate: {config.learning_rate}\n')
         file.write(f'Regularization Rate: {config.regularization_rate}\n')
+        file.write(f'Batch Size: {config.batch_size}\n')
+
         file.write(f'K_value: {config.k_value}\n')
         file.write(f'N# Parties: {config.n_parties}\n')
         file.write(f'N# Servers: {config.n_servers}\n')

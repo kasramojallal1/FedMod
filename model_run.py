@@ -36,13 +36,13 @@ def run_fedmod(party_set, server_set, main_server_set, X_train, y_train, X_test,
 def run_he(party_set, server_set, main_server_set, X_train, y_train, X_test, y_test, n_epochs, dataset_name):
     start_time = time.time()
 
-    config.type_paillier = True
+    config.type_HE = True
     train_loss, test_loss, train_accuracy, test_accuracy, input_shape, size_of_data_transfer, test_precision, test_recall = train_test.train_HE_binary_classification(
         dataset_name=dataset_name, n_epochs=n_epochs,
         party_list=party_set, server_list=server_set, main_server=main_server_set,
         X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
     end_time = time.time()
-    config.type_paillier = False
+    config.type_HE = False
 
     time_taken = end_time - start_time
     algorithm_results = [train_loss, train_accuracy, test_loss, test_accuracy, test_precision, test_recall, size_of_data_transfer, time_taken]
