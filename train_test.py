@@ -262,10 +262,8 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
                                       X_test, y_test):
     train_accuracy_history = []
     train_loss_history = []
-
     test_accuracy_history = []
     test_loss_history = []
-
     test_precision_history = []
     test_recall_history = []
 
@@ -312,7 +310,7 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
             if main_server.correct == 1:
                 correct_count += 1
 
-            if n_data == 0:
+            if n_data == 0 and epoch == 0:
                 for i in range(len(party_list)):
                     for j in range(len(server_list)):
                         size_of_transfer_data += sys.getsizeof(party_shares[i][j])
@@ -361,11 +359,6 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
     n_features = X_test.shape[1]
     column_share = n_features // n_parties
     extra_columns = n_features % n_parties
-
-    true_positive = 0
-    true_negative = 0
-    false_positive = 0
-    false_negative = 0
 
     parties_data = []
     parties = []
@@ -420,6 +413,85 @@ def test_model_binary_classification(n_parties, X_test, y_test, party_coefs, par
     recall_weighted = recall_score(y_label, y_pred, average='weighted')
 
     return accuracy, loss, precision_weighted, recall_weighted
+
+
+def train_binary_nosec(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train, X_test, y_test):
+    train_accuracy_history = []
+    train_loss_history = []
+    test_accuracy_history = []
+    test_loss_history = []
+    test_precision_history = []
+    test_recall_history = []
+
+    size_of_transfer_data = 0
+
+    for epoch in range(n_epochs):
+        print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch + 1}')
+        error_history = []
+        correct_count = 0
+        for n_data in range(party_list[0].data.shape[0]):
+
+            intermediate_outputs = []
+            for party in party_list:
+                intermediate_outputs.append(party.forward_pass(problem='classification'))
+
+            main_server.reset()
+            func.main_server_get_data(main_server, intermediate_outputs)
+            main_server.calculate_loss(problem='classification')
+
+            func.parties_get_error(party_list, main_server.error)
+
+            for i in range(len(party_list)):
+                party_list[i].get_batch_error(main_server.error)
+
+            if n_data % config.batch_size == config.batch_size - 1:
+                for party in party_list:
+                    party.update_weights_batch(config.batch_size)
+                    party.reset_batch_errors()
+
+            error_history.append(abs(party_list[0].error))
+            if main_server.correct == 1:
+                correct_count += 1
+
+            if n_data == 0:
+                for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(intermediate_outputs[i])
+                    size_of_transfer_data += sys.getsizeof(main_server.error)
+
+        train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
+        train_loss_history.append(np.average(error_history))
+
+        parties_coefs = []
+        parties_biases = []
+        for party in party_list:
+            parties_coefs.append(party.weights)
+            parties_biases.append(party.bias)
+
+        test_accuracy, test_loss, test_precision, test_recall = test_model_binary_classification(len(party_list),
+                                                                                                 X_test, y_test,
+                                                                                                 parties_coefs,
+                                                                                                 parties_biases, )
+
+        test_loss_history.append(test_loss)
+        test_accuracy_history.append(test_accuracy)
+        test_precision_history.append(test_precision)
+        test_recall_history.append(test_recall)
+
+        func.parties_reset(party_list)
+        main_server.reset_round()
+
+    if dataset_name == 'ionosphere':
+        new_df_y_train = pd.DataFrame()
+        new_df_y_test = pd.DataFrame()
+        class_mapping = {0: 'b', 1: 'g'}
+        new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
+        new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
+
+    input_shape = 0
+    for i in range(len(party_list)):
+        input_shape += len(party_list[i].weights)
+
+    return train_loss_history, test_loss_history, train_accuracy_history, test_accuracy_history, input_shape, size_of_transfer_data, test_precision_history, test_recall_history
 
 
 def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_list, main_server, X_train, y_train,

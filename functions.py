@@ -213,7 +213,7 @@ def print_results(name_list, accuracy_list, loss_list, precision_list, recall_li
         time_list[i] = round(time_list[i], round_parameter)
 
     for i in range(len(name_list)):
-        size_transfer_list[i] = size_transfer_list[i] / 1024
+        # size_transfer_list[i] = size_transfer_list[i] / 1024
         size_transfer_list[i] = round(size_transfer_list[i], round_parameter)
 
     with open(file_path, 'w') as file:
@@ -237,7 +237,7 @@ def print_results(name_list, accuracy_list, loss_list, precision_list, recall_li
             file.write(f'{name_list[i]} Time: {time_list[i]} secs\n')
         file.write('--------------------------------------------\n')
         for i in range(len(name_list)):
-            file.write(f'{name_list[i]} Data Transfer: {size_transfer_list[i]} KB\n')
+            file.write(f'{name_list[i]} Data Transfer: {size_transfer_list[i]} Bytes\n')
         file.write('--------------------------------------------\n')
 
         file.write(f'Dataset Name: {dataset_name}\n')
