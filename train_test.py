@@ -47,20 +47,7 @@ def train_mlp_binary_baseline(n_epochs, X_train, y_train, X_test, y_test, input_
 
     for epoch in range(n_epochs):
         print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
-        history = model_tf.fit(X_train, y_train, epochs=1, batch_size=config.batch_size, verbose=0)
-
-        # train_loss = history.history['loss'][0]
-        # train_accuracy = history.history['accuracy'][0]
-        # baseline_train_loss.append(train_loss)
-        # baseline_train_accuracy.append(train_accuracy)
-
-        # test_loss, test_accuracy = model_tf.evaluate(X_test, y_test, verbose=0)
-
-        # y_test_pred = (model_tf.predict(X_test) > 0.5).astype("int32")
-        # test_accuracy = accuracy_score(y_test, y_test_pred)
-        # test_loss = bce(y_test, y_test_pred).numpy()
-        # test_precision = precision_score(y_test, y_test_pred)
-        # test_recall = recall_score(y_test, y_test_pred)
+        model_tf.fit(X_train, y_train, epochs=1, batch_size=config.batch_size, verbose=0)
 
         test_loss, test_accuracy, test_precision, test_recall = model_tf.evaluate(X_test, y_test, verbose=0)
 

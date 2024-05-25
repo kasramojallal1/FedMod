@@ -28,9 +28,9 @@ dataset_address_5 = './datasets/parkinson.arff'
 
 dataset_1 = False
 dataset_2 = False
-dataset_3 = True
+dataset_3 = False
 dataset_4 = False
-dataset_5 = False
+dataset_5 = True
 
 if __name__ == "__main__":
 
@@ -59,8 +59,8 @@ if __name__ == "__main__":
         X_train, X_test, y_train, y_test = preprocess.setup_dataframe_4(dataset_address_4)
 
     elif dataset_5:
-        config.learning_rate = 0.001
-        n_epochs = 150
+        config.learning_rate = 0.01
+        n_epochs = 100
         dataset_name = 'parkinson'
         problem_type = 'binary'
         n_classes = 2
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         print("Dataset not found")
         exit()
 
-    name_list = ['FedMod', 'Centralized', 'FedV', 'HE', 'DP']
+    name_list = ['FedMod', 'Centralized', 'HE', 'DP']
     n_sets = len(name_list)
     file_write_path_figures = f"results/{dataset_name}/figure-p{config.n_parties}"
     file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}"
@@ -90,10 +90,10 @@ if __name__ == "__main__":
             model_run.run_baseline(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test,
                                    input_shape=config.nn_input_shape, n_epochs=n_epochs, dataset_name=dataset_name,
                                    problem_type=problem_type, n_classes=n_classes),
-            model_run.run_fe(party_set=party_sets[2], server_set=server_sets[2], main_server_set=main_server_sets[2],
-                             X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
-                             dataset_name=dataset_name),
-            model_run.run_he(party_set=party_sets[3], server_set=server_sets[3], main_server_set=main_server_sets[3],
+            # model_run.run_fe(party_set=party_sets[3], server_set=server_sets[3], main_server_set=main_server_sets[3],
+            #                  X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
+            #                  dataset_name=dataset_name),
+            model_run.run_he(party_set=party_sets[2], server_set=server_sets[2], main_server_set=main_server_sets[2],
                              X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
                              dataset_name=dataset_name),
             model_run.run_dp(party_set=party_sets[1], server_set=server_sets[1], main_server_set=main_server_sets[1],

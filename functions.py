@@ -248,4 +248,8 @@ def print_results(name_list, accuracy_list, loss_list, precision_list, recall_li
         file.write(f'K_value: {config.k_value}\n')
         file.write(f'N# Parties: {config.n_parties}\n')
         file.write(f'N# Servers: {config.n_servers}\n')
+
+        file.write(f'Poly Modulus Degree: {config.poly_mod_degree}\n')
+        file.write(f'Coeff Mod Bit Sizes: {config.coeff_mod_bit_sizes}\n')
+        file.write(f'Global Scale: {config.context.global_scale}\n')
         file.write('--------------------------------------------\n')
