@@ -111,10 +111,8 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
                                      X_test, y_test, n_classes):
     train_accuracy_history = []
     train_loss_history = []
-
     test_accuracy_history = []
     test_loss_history = []
-
     test_precision_history = []
     test_recall_history = []
 
@@ -138,6 +136,13 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
                         party_list[i].create_shares(smashed_list[i][j], config.k_value, config.random_coef))
                 party_shares.append(party_m_shares)
 
+            if n_data == 0 and epoch == 0:
+                for j in range(n_classes):
+                    for i in range(len(party_list)):
+                        party_m_share = party_shares[i]
+                        size_of_transfer_data += sys.getsizeof(party_m_share[0])
+                        size_of_transfer_data += sys.getsizeof(party_m_share[1][0])
+
             for server in server_list:
                 server.reset()
             main_server.reset()
@@ -160,6 +165,12 @@ def train_model_multi_classification(dataset_name, n_epochs, party_list, server_
 
             if main_server.correct == 1:
                 correct_count += 1
+
+            if n_data == 0 and epoch == 0:
+                for i in range(len(server_list)):
+                    size_of_transfer_data += sys.getsizeof(sumed_data[i])
+                for i in range(len(party_list)):
+                    size_of_transfer_data += sys.getsizeof(main_server.error)
 
         train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
         train_loss_history.append(np.average(error_history))
@@ -280,6 +291,12 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
                 party_shares.append(party.create_shares(party.forward_pass(problem='classification'), config.k_value,
                                                         config.random_coef))
 
+            if n_data == 0 and epoch == 0:
+                for i in range(len(party_list)):
+                    party_m_share = party_shares[i]
+                    size_of_transfer_data += sys.getsizeof(party_m_share[0])
+                    size_of_transfer_data += sys.getsizeof(party_m_share[1][0])
+
             for server in server_list:
                 server.reset()
 
@@ -311,9 +328,6 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
                 correct_count += 1
 
             if n_data == 0 and epoch == 0:
-                for i in range(len(party_list)):
-                    for j in range(len(server_list)):
-                        size_of_transfer_data += sys.getsizeof(party_shares[i][j])
                 for i in range(len(server_list)):
                     size_of_transfer_data += sys.getsizeof(sumed_data[i])
                 for i in range(len(party_list)):
@@ -426,7 +440,7 @@ def train_binary_nosec(dataset_name, n_epochs, party_list, server_list, main_ser
     size_of_transfer_data = 0
 
     for epoch in range(n_epochs):
-        print(f'Dataset:{dataset_name}, Alg:FedMod, Epoch:{epoch + 1}')
+        print(f'Dataset:{dataset_name}, Alg:Baseline, Epoch:{epoch + 1}')
         error_history = []
         correct_count = 0
         for n_data in range(party_list[0].data.shape[0]):
@@ -453,10 +467,11 @@ def train_binary_nosec(dataset_name, n_epochs, party_list, server_list, main_ser
             if main_server.correct == 1:
                 correct_count += 1
 
-            if n_data == 0:
+            if n_data == 0 and epoch == 0:
                 for i in range(len(party_list)):
-                    size_of_transfer_data += sys.getsizeof(intermediate_outputs[i])
                     size_of_transfer_data += sys.getsizeof(main_server.error)
+                for i in range(len(intermediate_outputs)):
+                    size_of_transfer_data += sys.getsizeof(intermediate_outputs[i][0])
 
         train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
         train_loss_history.append(np.average(error_history))
@@ -532,26 +547,40 @@ def train_HE_binary_classification(dataset_name, n_epochs, party_list, server_li
             main_server.reset()
 
             if config.type_HE:
-                if n_data == 0:
-                    for i in range(len(party_list)):
+
+                if n_data == 0 and epoch == 0:
+                    for i in range(len(encrypted_numbers)):
                         size_of_transfer_data += sys.getsizeof(encrypted_numbers[i])
+
                 main_server_error = main_server.calculate_HE_loss(encrypted_numbers)
+
             elif config.type_paillier:
-                if n_data == 0:
-                    for i in range(len(party_list)):
+
+                if n_data == 0 and epoch == 0:
+                    for i in range(len(encrypted_functional)):
                         size_of_transfer_data += sys.getsizeof(encrypted_functional[i])
+
                 main_server_error = main_server.calculate_paillier_loss(encrypted_functional)
+
             elif config.type_DP:
-                if n_data == 0:
-                    for i in range(len(party_list)):
+
+                if n_data == 0 and epoch == 0:
+                    for i in range(len(smashed_numbers)):
                         size_of_transfer_data += sys.getsizeof(smashed_numbers[i])
+
                 main_server_error = main_server.calculate_DP_loss(smashed_numbers, laplace_mech)
 
             func.parties_get_error(party_list, main_server_error)
-            if n_data == 0:
+            if n_data == 0 and epoch == 0:
                 for i in range(len(party_list)):
                     if config.type_paillier:
-                        size_of_transfer_data += sys.getsizeof(config.public_key.encrypt(main_server_error))
+                        temp_enc = config.public_key.encrypt(main_server_error)
+                        size_of_transfer_data += sys.getsizeof(temp_enc)
+                        size_of_transfer_data += sys.getsizeof(config.context)
+                    elif config.type_HE:
+                        temp_enc = [ts.ckks_vector(config.context, [num]) for num in [main_server_error]]
+                        size_of_transfer_data += sys.getsizeof(temp_enc)
+                        size_of_transfer_data += sys.getsizeof(config.context)
                     else:
                         size_of_transfer_data += sys.getsizeof(main_server_error)
 
@@ -733,11 +762,11 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
             main_server.reset()
             main_server_error = main_server.calculate_FE_loss(party_list)
 
-            if n_data == 0:
+            if n_data == 0 and epoch == 0:
                 for i in range(len(party_list)):
                     size_of_transfer_data += sys.getsizeof(encrypted_data_list[i])
-                    size_of_transfer_data += sys.getsizeof(offset_list[i])
-                    size_of_transfer_data += sys.getsizeof(party_list[i].weights)
+                    # size_of_transfer_data += sys.getsizeof(offset_list[i])
+                    # size_of_transfer_data += sys.getsizeof(party_list[i].weights)
 
                     size_of_transfer_data += sys.getsizeof(main_server_error)
 

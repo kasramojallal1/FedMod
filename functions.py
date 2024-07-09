@@ -111,7 +111,7 @@ def check_correct_binary(sigmoid_result, label):
 def create_graphs_classification(history, dataset_name, type_name, name_list, file_path):
     file_path = file_path + f'-{type_name}.png'
 
-    color_list = ['blue', 'purple', 'red', 'green', 'orange', 'yellow']
+    color_list = ['darkorange', 'limegreen', 'purple', 'blue']
     trace_list = []
     for i in range(len(history)):
         trace_list.append(go.Scatter(y=history[i], mode='lines', name=f'{name_list[i]}',
@@ -126,7 +126,7 @@ def create_graphs_classification(history, dataset_name, type_name, name_list, fi
                        plot_bgcolor='rgba(242, 242, 242, 1)')
 
     fig1 = go.Figure(data=trace_list, layout=layout)
-    fig1.write_image(file_path, width=1920, height=1080, scale=2)
+    fig1.write_image(file_path, width=1280, height=720, scale=2)
     # fig1.show()
 
 
