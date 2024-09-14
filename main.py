@@ -16,10 +16,10 @@ pio.renderers.default = "browser"
 pd.set_option('display.max_columns', None)
 pd.set_option('display.expand_frame_repr', False)
 
-os.environ['PYTHONHASHSEED'] = '0'
-np.random.seed(43)
-tf.random.set_seed(43)
-random.seed(45)
+# os.environ['PYTHONHASHSEED'] = '0'
+# np.random.seed(43)
+# tf.random.set_seed(43)
+# random.seed(45)
 
 dataset_address_1 = './datasets/boston_housing.csv'
 dataset_address_2 = './datasets/heart.csv'
@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     elif dataset_3:
         config.learning_rate = 0.01
+        config.batch_size = 4
         n_epochs = 200
         dataset_name = 'ionosphere'
         problem_type = 'binary'
@@ -60,7 +61,7 @@ if __name__ == "__main__":
 
     elif dataset_5:
         config.learning_rate = 0.01
-        config.batch_size = 2
+        config.batch_size = 4
         n_epochs = 100
         dataset_name = 'parkinson'
         problem_type = 'binary'
@@ -71,13 +72,13 @@ if __name__ == "__main__":
         print("Dataset not found")
         exit()
 
-    name_list = ['HE', 'DP', 'Baseline', 'FedMod']
-    n_sets = len(name_list)
+    name_list = ['FedMod']
+    n_sets = 5
 
     for i in range(2, 3):
         config.n_parties = i
         file_write_path_figures = f"results/{dataset_name}/figure-p{config.n_parties}"
-        file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}"
+        file_write_path_texts = f"results/{dataset_name}/report-p{config.n_parties}-s{config.n_servers}"
 
         party_sets, server_sets, main_server_sets = func.get_sets_of_entities(n_sets=n_sets,
                                                                               problem_type=problem_type,
@@ -85,27 +86,26 @@ if __name__ == "__main__":
                                                                               y_train=y_train)
 
         all_results = [
-            model_run.run_he(party_set=party_sets[2], server_set=server_sets[2], main_server_set=main_server_sets[2],
+            model_run.run_he(party_set=party_sets[0], server_set=server_sets[0], main_server_set=main_server_sets[0],
                              X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
                              dataset_name=dataset_name),
-            model_run.run_dp(party_set=party_sets[3], server_set=server_sets[3], main_server_set=main_server_sets[3],
+            model_run.run_fe(party_set=party_sets[1], server_set=server_sets[1], main_server_set=main_server_sets[1],
                              X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
                              dataset_name=dataset_name),
-
-            model_run.run_nosec(party_set=party_sets[1], server_set=server_sets[1],
-                                main_server_set=main_server_sets[1],
+            model_run.run_dp(party_set=party_sets[2], server_set=server_sets[2], main_server_set=main_server_sets[2],
+                             X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
+                             dataset_name=dataset_name),
+            model_run.run_nosec(party_set=party_sets[3], server_set=server_sets[3],
+                                main_server_set=main_server_sets[3],
                                 X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
                                 dataset_name=dataset_name, problem_type=problem_type, n_classes=n_classes),
-            model_run.run_fedmod(party_set=party_sets[0], server_set=server_sets[0],
-                                 main_server_set=main_server_sets[0],
+            model_run.run_fedmod(party_set=party_sets[4], server_set=server_sets[4],
+                                 main_server_set=main_server_sets[4],
                                  X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
                                  dataset_name=dataset_name, problem_type=problem_type, n_classes=n_classes),
-            # model_run.run_baseline(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test,
-            #                        input_shape=config.nn_input_shape, n_epochs=n_epochs, dataset_name=dataset_name,
-            #                        problem_type=problem_type, n_classes=n_classes),
-            # model_run.run_fe(party_set=party_sets[4], server_set=server_sets[4], main_server_set=main_server_sets[4],
-            #                  X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, n_epochs=n_epochs,
-            #                  dataset_name=dataset_name),
+            model_run.run_baseline(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test,
+                                   input_shape=config.nn_input_shape, n_epochs=n_epochs, dataset_name=dataset_name,
+                                   problem_type=problem_type, n_classes=n_classes),
 
 
         ]
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         size_transfer_list = []
         time_list = []
 
-        for j in range(n_sets):
+        for j in range(len(name_list)):
             train_loss_list.append(all_results[j][0])
             train_accuracy_list.append(all_results[j][1])
             test_loss_list.append(all_results[j][2])

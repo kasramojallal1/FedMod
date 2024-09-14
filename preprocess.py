@@ -4,6 +4,7 @@ from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from ucimlrepo import fetch_ucirepo
 from sklearn.linear_model import LogisticRegression
+import numpy as np
 
 
 def setup_dataframe_1(dataset_address):
@@ -56,13 +57,13 @@ def setup_dataframe_3():
     X = ionosphere.data.features
     y = ionosphere.data.targets
 
-    class_mapping = {'b': 0, 'g': 1}
+    class_mapping = {'b': np.int16(0), 'g': np.int16(1)}
     y.loc[:, 'Class'] = y['Class'].map(class_mapping)
 
-    X_values = X.values
-    min_max_scaler = preprocessing.MinMaxScaler()
-    X_scaled = min_max_scaler.fit_transform(X_values)
-    X = pd.DataFrame(X_scaled)
+    # X_values = X.values
+    # min_max_scaler = preprocessing.MinMaxScaler()
+    # X_scaled = min_max_scaler.fit_transform(X_values)
+    # X = pd.DataFrame(X_scaled)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 

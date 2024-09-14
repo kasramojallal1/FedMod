@@ -62,8 +62,10 @@ def sigmoid(x):
 
 def servers_get_from_clients(server_list, party_shares):
     for i in range(len(party_shares)):
-        server_list[0].get_from_client(party_shares[i][0])
-        server_list[1].get_from_client(party_shares[i][1])
+        for j in range(config.n_servers):
+            server_list[j].get_from_client(party_shares[i][j])
+        # server_list[0].get_from_client(party_shares[i][0])
+        # server_list[1].get_from_client(party_shares[i][1])
 
 
 def servers_sum_data(server_list):
@@ -111,7 +113,8 @@ def check_correct_binary(sigmoid_result, label):
 def create_graphs_classification(history, dataset_name, type_name, name_list, file_path):
     file_path = file_path + f'-{type_name}.png'
 
-    color_list = ['darkorange', 'limegreen', 'purple', 'blue']
+    # color_list = ['darkorange', 'limegreen', 'purple', 'blue', 'brown']
+    color_list = ['orange', 'blue', 'purple', 'blue', 'brown']
     trace_list = []
     for i in range(len(history)):
         trace_list.append(go.Scatter(y=history[i], mode='lines', name=f'{name_list[i]}',

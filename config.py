@@ -8,7 +8,7 @@ from Crypto.Cipher import PKCS1_OAEP
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
 
-k_value = 123
+k_value = 123.325
 random_coef = secrets.randbelow(10 - 3 + 1) + 3
 
 batch_size = 4
@@ -16,9 +16,8 @@ learning_rate = 0.01
 regularization_rate = 0.001
 
 nn_input_shape = 0
-plot_intervals = 60
 n_parties = 2
-n_servers = 2
+n_servers = 3
 
 # poly_mod_degree = 16384
 # coeff_mod_bit_sizes = [60, 40, 60, 40, 60]

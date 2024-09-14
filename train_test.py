@@ -288,21 +288,29 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
 
             party_shares = []
             for party in party_list:
-                party_shares.append(party.create_shares(party.forward_pass(problem='classification'), config.k_value,
-                                                        config.random_coef))
+                party_shares.append(party.create_shares(party.forward_pass(problem='classification'), config.k_value, config.random_coef))
 
-            if n_data == 0 and epoch == 0:
+            # for i in range(len(party_shares)):
+            #     for j in range(len(party_shares[0])):
+            #         print(party_shares[i][j])
+
+            # print(type(party_shares[0][0]))
+            # print(type(party_shares[0][1]))
+
+            if epoch == 0:
                 for i in range(len(party_list)):
-                    party_m_share = party_shares[i]
-                    size_of_transfer_data += sys.getsizeof(party_m_share[0])
-                    size_of_transfer_data += sys.getsizeof(party_m_share[1][0])
+                    size_of_transfer_data += config.n_servers * 16
+                for i in range(len(server_list)):
+                    size_of_transfer_data += 16
 
             for server in server_list:
                 server.reset()
 
             for i in range(len(party_shares)):
-                server_list[0].get_from_client(party_shares[i][0])
-                server_list[1].get_from_client(party_shares[i][1])
+                for j in range(config.n_servers):
+                    server_list[j].get_from_client(party_shares[i][j])
+                # server_list[0].get_from_client(party_shares[i][0])
+                # server_list[1].get_from_client(party_shares[i][1])
 
             sumed_data = []
             for server in server_list:
@@ -327,11 +335,14 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
             if main_server.correct == 1:
                 correct_count += 1
 
-            if n_data == 0 and epoch == 0:
+            if epoch == 0:
                 for i in range(len(server_list)):
-                    size_of_transfer_data += sys.getsizeof(sumed_data[i])
-                for i in range(len(party_list)):
-                    size_of_transfer_data += sys.getsizeof(main_server.error)
+                    # size_of_transfer_data += sys.getsizeof(sumed_data[i])
+                    size_of_transfer_data += 16 / config.batch_size
+                    for i in range(len(party_list)):
+                        size_of_transfer_data += 16 / config.batch_size
+
+        # print(size_of_transfer_data/8)
 
         train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
         train_loss_history.append(np.average(error_history))
@@ -355,12 +366,12 @@ def train_model_binary_classification(dataset_name, n_epochs, party_list, server
         func.parties_reset(party_list)
         main_server.reset_round()
 
-    if dataset_name == 'ionosphere':
-        new_df_y_train = pd.DataFrame()
-        new_df_y_test = pd.DataFrame()
-        class_mapping = {0: 'b', 1: 'g'}
-        new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
-        new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
+    # if dataset_name == 'ionosphere':
+    #     new_df_y_train = pd.DataFrame()
+    #     new_df_y_test = pd.DataFrame()
+    #     class_mapping = {0: 'b', 1: 'g'}
+    #     new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
+    #     new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
 
     input_shape = 0
     for i in range(len(party_list)):
@@ -467,11 +478,13 @@ def train_binary_nosec(dataset_name, n_epochs, party_list, server_list, main_ser
             if main_server.correct == 1:
                 correct_count += 1
 
-            if n_data == 0 and epoch == 0:
+            if epoch == 0:
                 for i in range(len(party_list)):
-                    size_of_transfer_data += sys.getsizeof(main_server.error)
-                for i in range(len(intermediate_outputs)):
-                    size_of_transfer_data += sys.getsizeof(intermediate_outputs[i][0])
+                    size_of_transfer_data += 16
+                for i in range(len(party_list)):
+                    size_of_transfer_data += 16 / config.batch_size
+
+        # print(size_of_transfer_data / 8)
 
         train_accuracy_history.append(correct_count / party_list[0].data.shape[0])
         train_loss_history.append(np.average(error_history))
@@ -495,12 +508,12 @@ def train_binary_nosec(dataset_name, n_epochs, party_list, server_list, main_ser
         func.parties_reset(party_list)
         main_server.reset_round()
 
-    if dataset_name == 'ionosphere':
-        new_df_y_train = pd.DataFrame()
-        new_df_y_test = pd.DataFrame()
-        class_mapping = {0: 'b', 1: 'g'}
-        new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
-        new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
+    # if dataset_name == 'ionosphere':
+    #     new_df_y_train = pd.DataFrame()
+    #     new_df_y_test = pd.DataFrame()
+    #     class_mapping = {0: 'b', 1: 'g'}
+    #     new_df_y_train.loc[:, 'Class'] = y_train['Class'].map(class_mapping)
+    #     new_df_y_test.loc[:, 'Class'] = y_test['Class'].map(class_mapping)
 
     input_shape = 0
     for i in range(len(party_list)):
@@ -768,7 +781,8 @@ def train_FE_binary_classification(dataset_name, n_epochs, party_list, server_li
                     # size_of_transfer_data += sys.getsizeof(offset_list[i])
                     # size_of_transfer_data += sys.getsizeof(party_list[i].weights)
 
-                    size_of_transfer_data += sys.getsizeof(main_server_error)
+                    # size_of_transfer_data += sys.getsizeof(main_server_error)
+                    size_of_transfer_data += 32
 
             func.parties_get_error(party_list, main_server_error)
 

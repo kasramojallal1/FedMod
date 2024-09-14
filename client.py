@@ -1,5 +1,6 @@
 import numpy as np
 import secrets
+import random
 
 import config
 
@@ -120,17 +121,35 @@ class Client:
     def reset(self):
         self.round = 0
 
-    def create_shares(self, y_value, k_value, random_coef):
-        if y_value >= 0:
-            sum_values = random_coef * k_value + y_value
+    def create_shares(self, intermediate_output, k_value, random_coef):
+        # if intermediate_output >= 0:
+        #     sum_values = random_coef * k_value + intermediate_output
+        #
+        # else:
+        #     intermediate_output *= -1
+        #     sum_values = random_coef * k_value + intermediate_output
+        #     sum_values *= -1
+        #
+        # share1 = secrets.randbelow(
+        #     int(k_value) - (int(k_value) - 10) + 1) + (int(k_value) - 10) + random.uniform(-1, 1)
+        # share2 = sum_values - share1
+        #
+        # return share1, share2
 
+        if intermediate_output >= 0:
+            temp = random_coef * k_value + intermediate_output
         else:
-            y_value *= -1
-            sum_values = random_coef * k_value + y_value
-            sum_values *= -1
+            intermediate_output *= -1
+            temp = random_coef * k_value + intermediate_output
+            temp *= -1
 
-        share1 = secrets.randbelow(k_value - (k_value - 10) + 1) + (k_value - 10)
-        share2 = sum_values - share1
+        share_list = []
+        for i in range(config.n_servers - 1):
+            share_list.append(np.int8(secrets.randbelow(
+                int(k_value) - (int(k_value) - 10) + 1) + (int(k_value) - 10) + random.uniform(-1, 1)))
 
-        return share1, share2
+        share_list.append(temp - sum(share_list))
+        share_list[-1] = np.float16(share_list[-1][0])
+
+        return share_list
 
