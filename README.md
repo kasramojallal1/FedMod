@@ -34,4 +34,18 @@ This guide explains how to reconstruct the Conda environment and run the code, i
    In the `main.py` file, you can specify which dataset to use by setting the corresponding dataset flag to `True`. Ensure only the dataset you want to run is set to `True`.
 
 3. **Modify parameters**:
-   Parameters for running the code, such as training settings or model configurations, can be adjusted in the `config.py` file. Open `config.py` and modify the parameters as needed before running the code.
+   Parameters for running the code, such as learning rate or model settings, can be adjusted for each individual dataset in the `main.py` file.
+
+### Running Different Approaches
+
+By default, only the FedMod approach will be executed when the program is initiated. If you want to run additional approaches, such as Homomorphic Encryption (HE), Functional Encryption (FE), Differential Privacy (DP), FedV, or Centralized, you will need to modify the `main.py` file.
+
+1. **Uncomment the desired approaches**: 
+   In the `main.py` file, locate the list called `all_results`. The code sections corresponding to the approaches you want to run (e.g., HE, FE, DP, FedV, Centralized) should be uncommented.
+
+2. **Update the `name_list`**:
+   Similarly, in the list called `name_list`, add the names of the approaches you want to run.
+
+### Important Notes
+
+- Some parameters, such as the learning rate, batch size, and number of epochs, can be specified individually for each dataset directly within the `main.py` file. Be sure to configure these parameters based on your dataset before running the code.

@@ -17,7 +17,7 @@ regularization_rate = 0.001
 
 nn_input_shape = 0
 n_parties = 2
-n_servers = 3
+n_servers = 2
 
 # poly_mod_degree = 16384
 # coeff_mod_bit_sizes = [60, 40, 60, 40, 60]
