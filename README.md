@@ -17,16 +17,20 @@ We evaluated FedMod on several real-world datasets, demonstrating its competitiv
 ### FedMod Architecture Overview
 
 <img width="768" height="419" alt="image" src="https://github.com/user-attachments/assets/7197630e-c24e-43a7-b440-7019ab57e2f0" />
-*Figure: An illustration of FedMod's multi-party, multi-server architecture protecting intermediate computations using additive secret sharing.*
+
+Figure: An illustration of FedMod's multi-party, multi-server architecture protecting intermediate computations using additive secret sharing.
+
 
 ### Experimental Results
 
 <img width="694" height="355" alt="image" src="https://github.com/user-attachments/assets/d80ef5d8-f8fa-419b-8256-cc44ba3747d0" />
-*Figure: FedMod achieves high accuracy with significantly lower computation time compared to other secure VFL methods.*
+
+Figure: FedMod achieves high accuracy with significantly lower computation time compared to other secure VFL methods.
 
 
 <img width="688" height="222" alt="image" src="https://github.com/user-attachments/assets/bc6c562f-e78a-4fc0-ad97-908f155838ff" />
-*Figure: FedMod demonstrates lower communication overhead than existing approaches, particularly on smaller batch sizes.*
+
+Figure: FedMod demonstrates lower communication overhead than existing approaches, particularly on smaller batch sizes.
 
 
 
