@@ -1,5 +1,36 @@
 # FedMod
 
+Vertical Federated Learning Using Multi-Server Secret Sharing
+
+**FedMod** is a lightweight, scalable, and privacy-preserving framework for **Vertical Federated Learning (VFL)** based on **n-out-of-n additive secret sharing**. Unlike traditional VFL approaches that rely on heavy cryptographic operations or trusted third parties, FedMod ensures data privacy through a multi-server secret sharing architecture—offering a practical solution that combines strong privacy with low computational and communication overhead.
+
+In vertical federated learning, multiple organizations holding different features of the same users collaborate to train machine learning models without sharing their sensitive data. FedMod addresses the privacy and scalability challenges inherent in this setting by:
+- Eliminating the need for encryption or secure hardware.
+- Using additive secret sharing to protect intermediate computations.
+- Enabling secure model training for both regression and classification tasks.
+- Achieving accuracy comparable to non-secure baselines while significantly reducing computation time and communication cost.
+
+We evaluated FedMod on several real-world datasets, demonstrating its competitive performance against state-of-the-art approaches such as Homomorphic Encryption (HE), Differential Privacy (DP), and Functional Encryption (FE).
+
+---
+
+### FedMod Architecture Overview
+
+<img width="768" height="419" alt="image" src="https://github.com/user-attachments/assets/7197630e-c24e-43a7-b440-7019ab57e2f0" />
+*Figure: An illustration of FedMod's multi-party, multi-server architecture protecting intermediate computations using additive secret sharing.*
+
+### Experimental Results
+
+<img width="694" height="355" alt="image" src="https://github.com/user-attachments/assets/d80ef5d8-f8fa-419b-8256-cc44ba3747d0" />
+*Figure: FedMod achieves high accuracy with significantly lower computation time compared to other secure VFL methods.*
+
+
+<img width="688" height="222" alt="image" src="https://github.com/user-attachments/assets/bc6c562f-e78a-4fc0-ad97-908f155838ff" />
+*Figure: FedMod demonstrates lower communication overhead than existing approaches, particularly on smaller batch sizes.*
+
+
+
+
 ## Reconstructing the Conda Environment and Running the Code
 
 This guide explains how to reconstruct the Conda environment and run the code, including how to select datasets and adjust parameters.
