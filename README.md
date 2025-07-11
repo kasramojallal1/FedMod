@@ -34,6 +34,12 @@ FedMod achieves high accuracy with significantly lower computation time compared
 FedMod demonstrates lower communication overhead than existing approaches, particularly on smaller batch sizes.
 
 
+<img width="1303" height="265" alt="image" src="https://github.com/user-attachments/assets/5d180cb6-eaaf-40fe-b029-1018472a6836" />
+
+Learning curves comparison across different datasets and methods: FedMod, No Security, DP, HE, and CZOFO. Lines are plotted using values from every 5 epochs.
+
+
+
 
 
 ## Reconstructing the Conda Environment and Running the Code
